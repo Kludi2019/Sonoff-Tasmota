@@ -188,7 +188,6 @@ char *GetStringResult(char *lp,uint8_t lastop,char *cp,JsonObject *jo);
 char *ForceStringVar(char *lp,char *dstr);
 void send_download(void);
 uint8_t reject(char *name);
-extern uint8_t sml_status;
 
 void ScriptEverySecond(void) {
 
@@ -1766,13 +1765,12 @@ chknext:
             fvar=SML_Write(fvar1,str);
           } else {
 #ifdef ED300L
-            fvar=sml_status;
+            fvar=SML_Status(fvar1);
 #else
             fvar=0;
 #endif
           }
           lp++;
-          fvar=0;
           len=0;
           goto exit;
         }
