@@ -1496,6 +1496,37 @@ chknext:
           fvar=!global_state.mqtt_down;
           goto exit;
         }
+        if (!strncmp(vname,"mp(",3)) {
+          lp+=3;
+          float fvar1;
+          lp=GetNumericResult(lp,OPER_EQU,&fvar1,0);
+          SCRIPT_SKIP_SPACES
+          while (*lp!=')') {
+            char *opp=lp;
+            lp++;
+            float fvar2;
+            lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
+            SCRIPT_SKIP_SPACES
+            fvar=fvar1;
+            if ((*opp=='<' && fvar1<fvar2) ||
+                (*opp=='>' && fvar1>fvar2) ||
+                (*opp=='=' && fvar1==fvar2))
+            {
+              if (*lp!='<' && *lp!='>' && *lp!='=' && *lp!=')' && *lp!=SCRIPT_EOL) {
+                float fvar3;
+                lp=GetNumericResult(lp,OPER_EQU,&fvar3,0);
+                SCRIPT_SKIP_SPACES
+                fvar=fvar3;
+              } else {
+                fvar=fvar2;
+              }
+              break;
+            }
+            while (*lp!='<' && *lp!='>' && *lp!='=' && *lp!=')' && *lp!=SCRIPT_EOL) lp++;
+          }
+          len=0;
+          goto exit;
+        }
         break;
       case 'p':
         if (!strncmp(vname,"pin[",4)) {
@@ -1588,7 +1619,7 @@ chknext:
         if (!strncmp(vname,"sw[",3)) {
           // tasmota switch state
           GetNumericResult(vname+3,OPER_EQU,&fvar,0);
-          fvar=SwitchLastState((uint8_t)fvar);
+          fvar=SwitchLastState((uint32_t)fvar);
           // skip ] bracket
           len++;
           goto exit;
@@ -1728,10 +1759,16 @@ chknext:
             float fvar3;
             lp=GetNumericResult(lp,OPER_EQU,&fvar3,0);
             fvar=SML_SetBaud(fvar1,fvar3);
-          } else {
+          } else if (fvar2==1) {
             char str[SCRIPT_MAXSSIZE];
             lp=GetStringResult(lp,OPER_EQU,str,0);
             fvar=SML_Write(fvar1,str);
+          } else {
+#ifdef ED300L
+            fvar=sml_status;
+#else
+            fvar=0;
+#endif
           }
           lp++;
           fvar=0;
