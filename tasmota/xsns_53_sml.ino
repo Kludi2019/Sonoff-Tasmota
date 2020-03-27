@@ -965,6 +965,10 @@ uint8_t dchars[16];
   }
 }
 
+#ifdef ED300L
+uint8_t sml_status
+#endif
+
 // skip sml entries
 uint8_t *skip_sml(uint8_t *cp,int16_t *res) {
     uint8_t len,len1,type;
@@ -981,6 +985,11 @@ uint8_t *skip_sml(uint8_t *cp,int16_t *res) {
          *res=0;
     } else {
         // skip len
+#ifdef ED300L
+        if (*cp==0x64) {
+          sml_status=*(cp+3);
+        }
+#endif
         *res=(signed char)*(cp+1);
         cp+=len;
     }
