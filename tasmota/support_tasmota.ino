@@ -235,7 +235,8 @@ void SetDevicePower(power_t rpower, uint32_t source)
 void RestorePower(bool publish_power, uint32_t source)
 {
   if (power != last_power) {
-    SetDevicePower(last_power, source);
+    power = last_power;
+    SetDevicePower(power, source);
     if (publish_power) {
       MqttPublishAllPowerState();
     }
@@ -347,6 +348,11 @@ void SetLedPowerIdx(uint32_t led, uint32_t state)
     }
     DigitalWrite(GPIO_LED1 + led, bitRead(led_inverted, led) ? !state : state);
   }
+#ifdef USE_BUZZER
+  if (led == 0) {
+    BuzzerSetStateToLed(state);
+  }
+#endif // USE_BUZZER
 }
 
 void SetLedPower(uint32_t state)
@@ -382,6 +388,9 @@ void SetLedLink(uint32_t state)
     if (state) { state = 1; }
     digitalWrite(led_pin, (led_inv) ? !state : state);
   }
+#ifdef USE_BUZZER
+  BuzzerSetStateToLed(state);
+#endif // USE_BUZZER
 }
 
 void SetPulseTimer(uint32_t index, uint32_t time)
@@ -415,6 +424,7 @@ bool SendKey(uint32_t key, uint32_t device, uint32_t state)
   char scommand[CMDSZ];
   char key_topic[TOPSZ];
   bool result = false;
+  uint32_t device_save = device;
 
   char *tmp = (key) ? SettingsText(SET_MQTT_SWITCH_TOPIC) : SettingsText(SET_MQTT_BUTTON_TOPIC);
   Format(key_topic, tmp, sizeof(key_topic));
@@ -450,7 +460,7 @@ bool SendKey(uint32_t key, uint32_t device, uint32_t state)
     result = XdrvRulesProcess();
   }
   int32_t payload_save = XdrvMailbox.payload;
-  XdrvMailbox.payload = key << 16 | state << 8 | device;
+  XdrvMailbox.payload = device_save << 24 | key << 16 | state << 8 | device;
   XdrvCall(FUNC_ANY_KEY);
   XdrvMailbox.payload = payload_save;
   return result;
@@ -532,6 +542,9 @@ void ExecuteCommandPower(uint32_t device, uint32_t state, uint32_t source)
     case POWER_TOGGLE:
       power ^= mask;
     }
+#ifdef USE_DEVICE_GROUPS
+    if (SRC_REMOTE != source && SRC_RETRY != source) SendLocalDeviceGroupMessage(DGR_MSGTYP_UPDATE, DGR_ITEM_POWER, power);
+#endif  // USE_DEVICE_GROUPS
     SetDevicePower(power, source);
 #ifdef USE_DOMOTICZ
     DomoticzUpdatePowerState(device);
@@ -638,9 +651,10 @@ void MqttShowState(void)
     MqttShowPWMState();
   }
 
+  int32_t rssi = WiFi.RSSI();
   ResponseAppend_P(PSTR(",\"" D_JSON_WIFI "\":{\"" D_JSON_AP "\":%d,\"" D_JSON_SSID "\":\"%s\",\"" D_JSON_BSSID "\":\"%s\",\"" D_JSON_CHANNEL "\":%d,\"" D_JSON_RSSI "\":%d,\"" D_JSON_SIGNAL "\":%d,\"" D_JSON_LINK_COUNT "\":%d,\"" D_JSON_DOWNTIME "\":\"%s\"}}"),
     Settings.sta_active +1, SettingsText(SET_STASSID1 + Settings.sta_active), WiFi.BSSIDstr().c_str(), WiFi.channel(),
-    WifiGetRssiAsQuality(WiFi.RSSI()), WiFi.RSSI(), WifiLinkCount(), WifiDowntime().c_str());
+    WifiGetRssiAsQuality(rssi), rssi, WifiLinkCount(), WifiDowntime().c_str());
 }
 
 void MqttPublishTeleState(void)
@@ -651,6 +665,30 @@ void MqttPublishTeleState(void)
 #if defined(USE_RULES) || defined(USE_SCRIPT)
   RulesTeleperiod();  // Allow rule based HA messages
 #endif  // USE_SCRIPT
+}
+
+void TempHumDewShow(bool json, bool pass_on, const char *types, float f_temperature, float f_humidity)
+{
+  if (json) {
+    ResponseAppend_P(PSTR(",\"%s\":{"), types);
+    ResponseAppendTHD(f_temperature, f_humidity);
+    ResponseJsonEnd();
+#ifdef USE_DOMOTICZ
+    if (pass_on) {
+      DomoticzTempHumPressureSensor(f_temperature, f_humidity);
+    }
+#endif  // USE_DOMOTICZ
+#ifdef USE_KNX
+    if (pass_on) {
+      KnxSensor(KNX_TEMPERATURE, f_temperature);
+      KnxSensor(KNX_HUMIDITY, f_humidity);
+    }
+#endif  // USE_KNX
+#ifdef USE_WEBSERVER
+  } else {
+    WSContentSend_THD(types, f_temperature, f_humidity);
+#endif  // USE_WEBSERVER
+  }
 }
 
 bool MqttShowSensor(void)
@@ -664,8 +702,7 @@ bool MqttShowSensor(void)
 #else
     if (pin[GPIO_SWT1 +i] < 99) {
 #endif  // USE_TM1638
-      bool swm = ((FOLLOW_INV == Settings.switchmode[i]) || (PUSHBUTTON_INV == Settings.switchmode[i]) || (PUSHBUTTONHOLD_INV == Settings.switchmode[i]) || (FOLLOWMULTI_INV == Settings.switchmode[i]));
-      ResponseAppend_P(PSTR(",\"" D_JSON_SWITCH "%d\":\"%s\""), i +1, GetStateText(swm ^ SwitchLastState(i)));
+      ResponseAppend_P(PSTR(",\"" D_JSON_SWITCH "%d\":\"%s\""), i +1, GetStateText(SwitchState(i)));
     }
   }
   XsnsCall(FUNC_JSON_APPEND);
@@ -677,6 +714,9 @@ bool MqttShowSensor(void)
   }
   if (strstr_P(mqtt_data, PSTR(D_JSON_TEMPERATURE)) != nullptr) {
     ResponseAppend_P(PSTR(",\"" D_JSON_TEMPERATURE_UNIT "\":\"%c\""), TempUnit());
+  }
+  if ((strstr_P(mqtt_data, PSTR(D_JSON_SPEED)) != nullptr) && Settings.flag2.speed_conversion) {
+    ResponseAppend_P(PSTR(",\"" D_JSON_SPEED_UNIT "\":\"%s\""), SpeedUnit().c_str());
   }
   ResponseJsonEnd();
 
@@ -769,6 +809,7 @@ void PerformEverySecond(void)
 #endif  // USE_RULES
         }
 
+        XsnsCall(FUNC_AFTER_TELEPERIOD);
         XdrvCall(FUNC_AFTER_TELEPERIOD);
       }
     }
@@ -786,7 +827,6 @@ void Every100mSeconds(void)
 
   if (prepped_loglevel) {
     AddLog(prepped_loglevel);
-    prepped_loglevel = 0;
   }
 
   if (latching_relay_pulse) {
@@ -899,14 +939,18 @@ void Every250mSeconds(void)
             // Replace tasmota.xyz                                     with tasmota-minimal.xyz
             // Replace tasmota.bin.gz                                  with tasmota-minimal.bin.gz
             // Replace tasmota.xyz.gz                                  with tasmota-minimal.xyz.gz
+            // Replace tasmota.ino.bin                                 with tasmota-minimal.ino.bin
+            // Replace tasmota.ino.bin.gz                              with tasmota-minimal.ino.bin.gz
             // Replace http://domus1:80/api/arduino/tasmota.bin        with http://domus1:80/api/arduino/tasmota-minimal.bin
             // Replace http://domus1:80/api/arduino/tasmota.bin.gz     with http://domus1:80/api/arduino/tasmota-minimal.bin.gz
             // Replace http://domus1:80/api/arduino/tasmota-DE.bin.gz  with http://domus1:80/api/arduino/tasmota-minimal.bin.gz
             // Replace http://domus1:80/api/ard-uino/tasmota-DE.bin.gz with http://domus1:80/api/ard-uino/tasmota-minimal.bin.gz
+            // Replace http://192.168.2.17:80/api/arduino/tasmota.bin  with http://192.168.2.17:80/api/arduino/tasmota-minimal.bin
+            // Replace http://192.168.2.17/api/arduino/tasmota.bin.gz  with http://192.168.2.17/api/arduino/tasmota-minimal.bin.gz
 
             char *bch = strrchr(mqtt_data, '/');                       // Only consider filename after last backslash prevent change of urls having "-" in it
             if (bch == nullptr) { bch = mqtt_data; }                   // No path found so use filename only
-
+/*
             char *ech = strrchr(bch, '.');                             // Find file type in filename (none, .bin or .gz)
             if ((ech != nullptr) && (0 == strncasecmp_P(ech, PSTR(".GZ"), 3))) {
               char *fch = ech;
@@ -914,9 +958,14 @@ void Every250mSeconds(void)
               ech = strrchr(bch, '.');                                 // Find file type .bin.gz
               *fch = '.';
             }
-            if (ech == nullptr) { ech = mqtt_data + strlen(mqtt_data); }
+*/
+            char *ech = strchr(bch, '.');                              // Find file type in filename (none, .ino.bin, .ino.bin.gz, .bin, .bin.gz or .gz)
+            if (ech == nullptr) { ech = mqtt_data + strlen(mqtt_data); }  // Point to '/0' at end of mqtt_data becoming an empty string
+
+//AddLog_P2(LOG_LEVEL_DEBUG, PSTR("OTA: File type [%s]"), ech);
+
             char ota_url_type[strlen(ech) +1];
-            strncpy(ota_url_type, ech, sizeof(ota_url_type));          // Either empty, .bin or .bin.gz
+            strncpy(ota_url_type, ech, sizeof(ota_url_type));          // Either empty, .ino.bin, .ino.bin.gz, .bin, .bin.gz or .gz
 
             char *pch = strrchr(bch, '-');                             // Find last dash (-) and ignore remainder - handles tasmota-DE
             if (pch == nullptr) { pch = ech; }                         // No dash so ignore filetype
@@ -1248,6 +1297,18 @@ void SerialInput(void)
 
 /********************************************************************************************/
 
+void ResetPwm(void)
+{
+  for (uint32_t i = 0; i < MAX_PWMS; i++) {     // Basic PWM control only
+    if (pin[GPIO_PWM1 +i] < 99) {
+      analogWrite(pin[GPIO_PWM1 +i], bitRead(pwm_inverted, i) ? Settings.pwm_range : 0);
+//      analogWrite(pin[GPIO_PWM1 +i], bitRead(pwm_inverted, i) ? Settings.pwm_range - Settings.pwm_value[i] : Settings.pwm_value[i]);
+    }
+  }
+}
+
+/********************************************************************************************/
+
 void GpioInit(void)
 {
   uint32_t mpin;
@@ -1372,6 +1433,18 @@ void GpioInit(void)
   soft_spi_flg = ((pin[GPIO_SSPI_CS] < 99) && (pin[GPIO_SSPI_SCLK] < 99) && ((pin[GPIO_SSPI_MOSI] < 99) || (pin[GPIO_SSPI_MOSI] < 99)));
 #endif  // USE_SPI
 
+  // Set any non-used GPIO to INPUT - Related to resetPins() in support_legacy_cores.ino
+  // Doing it here solves relay toggles at restart.
+  for (uint32_t i = 0; i < sizeof(my_module.io); i++) {
+    mpin = ValidPin(i, my_module.io[i]);
+//    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("INI: gpio pin %d, mpin %d"), i, mpin);
+    if (((i < 6) || (i > 11)) && (0 == mpin)) {  // Skip SPI flash interface
+      if (!((1 == i) || (3 == i))) {             // Skip serial
+        pinMode(i, INPUT);
+      }
+    }
+  }
+
 #ifdef USE_I2C
   i2c_flg = ((pin[GPIO_I2C_SCL] < 99) && (pin[GPIO_I2C_SDA] < 99));
   if (i2c_flg) {
@@ -1446,6 +1519,10 @@ void GpioInit(void)
     pinMode(pin[GPIO_LEDLNK], OUTPUT);
     digitalWrite(pin[GPIO_LEDLNK], ledlnk_inverted);
   }
+
+#ifdef USE_PWM_DIMMER
+  if (PWM_DIMMER == my_module_type && pin[GPIO_REL1] < 99) devices_present--;
+#endif  // USE_PWM_DIMMER
 
   ButtonInit();
   SwitchInit();

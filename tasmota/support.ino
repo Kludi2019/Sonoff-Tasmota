@@ -51,7 +51,8 @@ void OsWatchTicker(void)
   uint32_t last_run = abs(t - oswatch_last_loop_time);
 
 #ifdef DEBUG_THEO
-  AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_OSWATCH " FreeRam %d, rssi %d %% (%d dBm), last_run %d"), ESP.getFreeHeap(), WifiGetRssiAsQuality(WiFi.RSSI()), WiFi.RSSI(), last_run);
+  int32_t rssi = WiFi.RSSI();
+  AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_LOG_APPLICATION D_OSWATCH " FreeRam %d, rssi %d %% (%d dBm), last_run %d"), ESP.getFreeHeap(), WifiGetRssiAsQuality(rssi), rssi, last_run);
 #endif  // DEBUG_THEO
   if (last_run >= (OSWATCH_RESET_TIME * 1000)) {
 //    AddLog_P(LOG_LEVEL_INFO, PSTR(D_LOG_APPLICATION D_OSWATCH " " D_BLOCKED_LOOP ". " D_RESTARTING));  // Save iram space
@@ -497,9 +498,8 @@ uint32_t ParseParameters(uint32_t count, uint32_t *params)
 {
   char *p;
   uint32_t i = 0;
-  for (char *str = strtok_r(XdrvMailbox.data, ", ", &p); str && i < count; str = strtok_r(nullptr, ", ", &p)) {
+  for (char *str = strtok_r(XdrvMailbox.data, ", ", &p); str && i < count; str = strtok_r(nullptr, ", ", &p), i++) {
     params[i] = strtoul(str, nullptr, 0);
-    i++;
   }
   return i;
 }
@@ -617,10 +617,31 @@ char TempUnit(void)
 
 float ConvertHumidity(float h)
 {
+  float result = h;
+
   global_update = uptime;
   global_humidity = h;
 
-  return h;
+  result = result + (0.1 * Settings.hum_comp);
+
+  return result;
+}
+
+float CalcTempHumToDew(float t, float h)
+{
+  if (isnan(h) || isnan(t)) { return 0.0; }
+
+  if (Settings.flag.temperature_conversion) {                 // SetOption8 - Switch between Celsius or Fahrenheit
+    t = (t - 32) / 1.8;                                       // Celsius
+  }
+
+  float gamma = TaylorLog(h / 100) + 17.62 * t / (243.5 + t);
+  float result = (243.5 * gamma / (17.62 - gamma));
+
+  if (Settings.flag.temperature_conversion) {                 // SetOption8 - Switch between Celsius or Fahrenheit
+    result = result * 1.8 + 32;                               // Fahrenheit
+  }
+  return result;
 }
 
 float ConvertPressure(float p)
@@ -639,6 +660,18 @@ float ConvertPressure(float p)
 String PressureUnit(void)
 {
   return (Settings.flag.pressure_conversion) ? String(D_UNIT_MILLIMETER_MERCURY) : String(D_UNIT_PRESSURE);
+}
+
+float ConvertSpeed(float s)
+{
+  // Entry in m/s
+  return s * kSpeedConversionFactor[Settings.flag2.speed_conversion];
+}
+
+String SpeedUnit(void)
+{
+  char speed[8];
+  return String(GetTextIndexed(speed, sizeof(speed), Settings.flag2.speed_conversion, kSpeedUnit));
 }
 
 void ResetGlobalValues(void)
@@ -1006,6 +1039,18 @@ int ResponseAppendTime(void)
   return ResponseAppendTimeFormat(Settings.flag2.time_format);
 }
 
+int ResponseAppendTHD(float f_temperature, float f_humidity)
+{
+  char temperature[FLOATSZ];
+  dtostrfd(f_temperature, Settings.flag2.temperature_resolution, temperature);
+  char humidity[FLOATSZ];
+  dtostrfd(f_humidity, Settings.flag2.humidity_resolution, humidity);
+  char dewpoint[FLOATSZ];
+  dtostrfd(CalcTempHumToDew(f_temperature, f_humidity), Settings.flag2.temperature_resolution, dewpoint);
+
+  return ResponseAppend_P(PSTR("\"" D_JSON_TEMPERATURE "\":%s,\"" D_JSON_HUMIDITY "\":%s,\"" D_JSON_DEWPOINT "\":%s"), temperature, humidity, dewpoint);
+}
+
 int ResponseJsonEnd(void)
 {
   return ResponseAppend_P(PSTR("}"));
@@ -1255,7 +1300,8 @@ void TemplateJson(void)
  * Sleep aware time scheduler functions borrowed from ESPEasy
 \*********************************************************************************************/
 
-inline int32_t TimeDifference(uint32_t prev, uint32_t next) {
+inline int32_t TimeDifference(uint32_t prev, uint32_t next)
+{
   return ((int32_t) (next - prev));
 }
 
@@ -1285,6 +1331,18 @@ void SetNextTimeInterval(unsigned long& timer, const unsigned long step)
   }
   // Try to get in sync again.
   timer = millis() + (step - passed);
+}
+
+int32_t TimePassedSinceUsec(uint32_t timestamp)
+{
+  return TimeDifference(timestamp, micros());
+}
+
+bool TimeReachedUsec(uint32_t timer)
+{
+  // Check if a certain timeout has been reached.
+  const long passed = TimePassedSinceUsec(timer);
+  return (passed >= 0);
 }
 
 /*********************************************************************************************\
@@ -1644,6 +1702,8 @@ void AddLog(uint32_t loglevel)
 
   if (!global_state.wifi_down &&
       (loglevel <= syslog_level)) { Syslog(); }
+
+  prepped_loglevel = 0;
 }
 
 void AddLog_P(uint32_t loglevel, const char *formatP)

@@ -38,8 +38,10 @@ extern "C" {
 void KNX_CB_Action(message_t const &msg, void *arg);
 //#endif  // USE_KNX
 
+void DomoticzTempHumPressureSensor(float temp, float hum, float baro = -1);
 char* ToHex_P(const unsigned char * in, size_t insz, char * out, size_t outsz, char inbetween = '\0');
 extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack, uint32_t stack_end);
+extern "C" void resetPins();
 
 /*********************************************************************************************\
  * Default global defines
@@ -53,6 +55,9 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #define USE_EMULATION
 #endif
 #ifdef USE_EMULATION_WEMO
+#define USE_EMULATION
+#endif
+#ifdef USE_DEVICE_GROUPS
 #define USE_EMULATION
 #endif
 
@@ -69,6 +74,16 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #ifndef MODULE
 #define MODULE                 SONOFF_BASIC      // [Module] Select default model
 #endif
+
+#ifdef USE_PWM_DIMMER_REMOTE
+#ifdef USE_PWM_DIMMER
+#ifndef USE_DEVICE_GROUPS
+#define USE_DEVICE_GROUPS
+#endif  // USE_DEVICE_GROUPS
+#else   // USE_PWM_DIMMER
+#undef USE_PWM_DIMMER_REMOTE
+#endif  // USE_PWM_DIMMER
+#endif  // USE_PWM_DIMMER_REMOTE
 
 /*********************************************************************************************\
  * [tasmota-sensors.bin]
@@ -93,15 +108,19 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #ifndef TUYA_DIMMER_ID
   #define TUYA_DIMMER_ID       0                 // Default dimmer Id
 #endif
-//#define USE_ARMTRONIX_DIMMERS                    // Add support for Armtronix Dimmers (+1k4 code)
-#define USE_PS_16_DZ                             // Add support for PS-16-DZ Dimmer (+2k code)
-#define USE_SONOFF_IFAN                          // Add support for Sonoff iFan02 and iFan03 (+2k code)
+#undef USE_ARMTRONIX_DIMMERS                    // Disable support for Armtronix Dimmers (+1k4 code)
+#undef USE_PS_16_DZ                             // Disable support for PS-16-DZ Dimmer (+2k code)
+#undef USE_SONOFF_IFAN                          // Disable support for Sonoff iFan02 and iFan03 (+2k code)
 #define USE_BUZZER                               // Add support for a buzzer (+0k6 code)
-#define USE_ARILUX_RF                            // Add support for Arilux RF remote controller (+0k8 code, 252 iram (non 2.3.0))
-//#define USE_SHUTTER                              // Add Shutter support for up to 4 shutter with different motortypes (+6k code)
+#undef USE_ARILUX_RF                            // Disable support for Arilux RF remote controller (+0k8 code, 252 iram (non 2.3.0))
+#undef USE_SHUTTER                              // Disable Shutter support for up to 4 shutter with different motortypes (+6k code)
 #define USE_DEEPSLEEP                            // Add support for deepsleep (+1k code)
-#define USE_EXS_DIMMER                           // Add support for EX-Store WiFi Dimmer
-#define USE_HOTPLUG                              // Add support for sensor HotPlug
+#undef USE_EXS_DIMMER                           // Disable support for EX-Store WiFi Dimmer
+//#define USE_HOTPLUG                              // Add support for sensor HotPlug
+#undef USE_DEVICE_GROUPS                        // Disable support for device groups (+5k6 code)
+#undef USE_PWM_DIMMER                           // Disable support for MJ-SD01/acenx/NTONPOWER PWM dimmers (+4k5 code)
+#undef USE_KEELOQ                               // Disable support for Jarolift rollers by Keeloq algorithm (+4k5 code)
+#undef USE_SONOFF_D1                            // DIsable support for Sonoff D1 Dimmer (+0k7 code)
 
 // -- Optional light modules ----------------------
 #define USE_LIGHT                                // Add Dimmer/Light support
@@ -117,6 +136,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #define USE_SM16716                              // Add support for SM16716 RGB LED controller (+0k7 code)
 #define USE_SM2135                               // Add support for SM2135 RGBCW led control as used in Action LSC (+0k6 code)
 #define USE_SONOFF_L1                            // Add support for Sonoff L1 led control
+#define USE_ELECTRIQ_MOODL                       // Add support for ElectriQ iQ-wifiMOODL RGBW LED controller
 
 #define USE_COUNTER                              // Enable counters
 #undef USE_ADC_VCC                               // Add Analog input on selected devices
@@ -139,8 +159,6 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #define USE_SGP30                                // Add I2C code for SGP30 sensor (+1k1 code)
 //#define USE_SI1145                               // Add I2C code for SI1145/46/47 sensor (+1k code)
 #define USE_LM75AD                               // Add I2C code for LM75AD sensor (+0k5 code)
-#define USE_DHT12                                // Add I2C code for DHT12 temperature and humidity sensor (+0k7 code)
-#define USE_DS1624                               // Add I2C code for DS1624, DS1621 sensor
 //#define USE_APDS9960                             // Add I2C code for APDS9960 Proximity Sensor. Disables SHT and VEML6070 (+4k7 code)
 //#define USE_MCP230xx                             // Enable MCP23008/MCP23017 - Must define I2C Address in #define USE_MCP230xx_ADDR below - range 0x20 - 0x27 (+4k7 code)
 //  #define USE_MCP230xx_ADDR 0x20                 // Enable MCP23008/MCP23017 I2C Address to use (Must be within range 0x20 through 0x27 - set according to your wired setup)
@@ -150,7 +168,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 //  #define USE_PCA9685_ADDR 0x40                  // Enable PCA9685 I2C Address to use (Must be within range 0x40 through 0x47 - set according to your wired setup)
 //  #define USE_PCA9685_FREQ 50                    // Define default PWM frequency in Hz to be used (must be within 24 to 1526) - If other value is used, it will rever to 50Hz
 //#define USE_MPR121                               // Enable MPR121 controller (I2C addresses 0x5A, 0x5B, 0x5C and 0x5D) in input mode for touch buttons (+1k3 code)
-//#define USE_CCS811                               // Add I2C code for CCS811 sensor (+2k2 code)
+#define USE_CCS811                               // Add I2C code for CCS811 sensor (+2k2 code)
 //#define USE_MPU6050                              // Enable MPU6050 sensor (I2C address 0x68 AD0 low or 0x69 AD0 high) (+2k6 code)
 //#define USE_DS3231                               // Enable DS3231 external RTC in case no Wifi is avaliable. See docs in the source file (+1k2 code)
 //#define USE_MGC3130                              // Enable MGC3130 Electric Field Effect Sensor (I2C address 0x42) (+2k7 code, 0k3 mem)
@@ -164,6 +182,13 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 //#define USE_PAJ7620                              // Enable PAJ7620 gesture sensor (I2C address 0x73) (+2.5k code)
 //#define USE_PCF8574                              // Enable PCF8574 I/O Expander (I2C addresses 0x20 - 0x26 and 0x39 - 0x3F) (+1k9 code)
 #define USE_HIH6                                 // Enable Honywell HIH Humidity and Temperature sensor (I2C address 0x27) (+0k6)
+#define USE_DHT12                                // Add I2C code for DHT12 temperature and humidity sensor (+0k7 code)
+#define USE_DS1624                               // Add I2C code for DS1624, DS1621 sensor
+//#define USE_AHT1x                                // Enable AHT10/15 humidity and temperature sensor (I2C address 0x38) (+0k8 code)
+#define USE_WEMOS_MOTOR_V1                       // Enable Wemos motor driver V1 (I2C addresses 0x2D - 0x30) (+0k7 code)
+  #define WEMOS_MOTOR_V1_ADDR  0x30              // Default I2C address 0x30
+  #define WEMOS_MOTOR_V1_FREQ  1000              // Default frequency
+//#define USE_HDC1080                              // Enable HDC1080 temperature/humidity sensor
 
 #define USE_MHZ19                                // Add support for MH-Z19 CO2 sensor (+2k code)
 #define USE_SENSEAIR                             // Add support for SenseAir K30, K70 and S8 CO2 sensor (+2k3 code)
@@ -185,6 +210,8 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #define USE_RDM6300                              // Add support for RDM6300 125kHz RFID Reader (+0k8)
 #define USE_IBEACON                              // Add support for bluetooth LE passive scan of ibeacon devices (uses HM17 module)
 //#define USE_GPS                                  // Add support for GPS and NTP Server for becoming Stratus 1 Time Source (+ 3.1kb flash, +132 bytes RAM)
+#define USE_HM10                                 // Add support for HM-10 as a BLE-bridge for the LYWSD03 (+5k1 code)
+#define USE_HRXL                                 // Add support for MaxBotix HRXL-MaxSonar ultrasonic range finders (+0k7)
 
 #define USE_ENERGY_SENSOR                        // Add energy sensors (-14k code)
 #define USE_PZEM004T                             // Add support for PZEM004T Energy monitor (+2k code)
@@ -196,6 +223,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #define USE_DDS2382                              // Add support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
 #define USE_DDSU666                              // Add support for Chint DDSU666 Modbus energy monitor (+0k6 code)
 //#define USE_SOLAX_X1                             // Add support for Solax X1 series Modbus log info (+3k1 code)
+//#define USE_LE01MR                               // Add support for F&F LE-01MR modbus energy meter (+2k code)
 
 #define USE_DHT                                  // Add support for DHT11, AM2301 (DHT21, DHT22, AM2302, AM2321) and SI7021 Temperature and Humidity sensor
 #define USE_MAX31855                             // Add support for MAX31855 K-Type thermocouple sensor using softSPI
@@ -209,7 +237,8 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #define USE_TM1638                               // Add support for TM1638 switches copying Switch1 .. Switch8 (+1k code)
 #define USE_HX711                                // Add support for HX711 load cell (+1k5 code)
 //#define USE_HX711_GUI                            // Add optional web GUI to HX711 as scale (+1k8 code)
-//#define USE_TX20_WIND_SENSOR                     // Add support for La Crosse TX20 anemometer (+2k code)
+//#define USE_TX20_WIND_SENSOR                     // Add support for La Crosse TX20 anemometer (+2k6/0k8 code)
+//#define USE_TX23_WIND_SENSOR                     // Add support for La Crosse TX23 anemometer (+2k7/1k code)
 #define USE_RC_SWITCH                            // Add support for RF transceiver using library RcSwitch (+2k7 code, 460 iram)
 #define USE_RF_SENSOR                            // Add support for RF sensor receiver (434MHz or 868MHz) (+0k8 code)
 //  #define USE_THEO_V2                            // Add support for decoding Theo V2 sensors as documented on https://sidweb.nl using 434MHz RF sensor receiver (+1k4 code)
@@ -239,6 +268,9 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_EMULATION                             // Disable Belkin WeMo and Hue Bridge emulation for Alexa (-16k code, -2k mem)
 #undef USE_EMULATION_HUE                         // Disable Hue Bridge emulation for Alexa (+14k code, +2k mem common)
 #undef USE_EMULATION_WEMO                        // Disable Belkin WeMo emulation for Alexa (+6k code, +2k mem common)
+#undef USE_DEEPSLEEP                             // Disable support for deepsleep (+1k code)
+#undef USE_DEVICE_GROUPS                         // Disable support for device groups (+3k5 code)
+#undef USE_PWM_DIMMER_REMOTE                     // Disbale support for remote switches to PWM Dimmer
 #undef DEBUG_THEO                                // Disable debug code
 #undef USE_DEBUG_DRIVER                          // Disable debug code
 #endif  // FIRMWARE_KNX_NO_EMULATION
@@ -276,6 +308,11 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_DEEPSLEEP                             // Disable support for deepsleep (+1k code)
 #undef USE_EXS_DIMMER                            // Disable support for EX-Store WiFi Dimmer
 #undef USE_HOTPLUG                               // Disable support for HotPlug
+#undef USE_DEVICE_GROUPS                         // Disable support for device groups (+3k5 code)
+#undef USE_PWM_DIMMER                            // Disable support for MJ-SD01/acenx/NTONPOWER PWM dimmers (+4k5 code)
+#undef USE_PWM_DIMMER_REMOTE                     // Disbale support for remote switches to PWM Dimmer
+#undef USE_KEELOQ                                // Disable support for Jarolift rollers by Keeloq algorithm (+4k5 code)
+#undef USE_SONOFF_D1                             // Disable support for Sonoff D1 Dimmer (+0k7 code)
 
 #undef USE_ENERGY_SENSOR                         // Disable energy sensors (-14k code)
   #undef USE_PZEM004T                            // Disable PZEM004T energy sensor
@@ -287,6 +324,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
   #undef USE_DDS2382                             // Disable support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
   #undef USE_DDSU666                             // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
   #undef USE_SOLAX_X1                            // Disable support for Solax X1 series Modbus log info (+3k1 code)
+  #undef USE_LE01MR                              // Disable support for F&F LE-01MR Modbus energy meter (+2k code)
 
 #define USE_I2C                                  // I2C using library wire (+10k code, 0k2 mem, 124 iram)
   #define USE_DISPLAY                            // Add I2C Display Support (+2k code)
@@ -351,6 +389,11 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_DEEPSLEEP                             // Disable support for deepsleep (+1k code)
 #undef USE_EXS_DIMMER                            // Disable support for EX-Store WiFi Dimmer
 #undef USE_HOTPLUG                               // Disable support for HotPlug
+#undef USE_DEVICE_GROUPS                         // Disable support for device groups (+3k5 code)
+#undef USE_PWM_DIMMER                            // Disable support for MJ-SD01/acenx/NTONPOWER PWM dimmers (+4k5 code)
+#undef USE_PWM_DIMMER_REMOTE                     // Disbale support for remote switches to PWM Dimmer
+#undef USE_KEELOQ                                // Disable support for Jarolift rollers by Keeloq algorithm (+4k5 code)
+#undef USE_SONOFF_D1                             // Disable support for Sonoff D1 Dimmer (+0k7 code)
 
 // -- Optional light modules ----------------------
 //#undef USE_LIGHT                                 // Also disable all Dimmer/Light support
@@ -359,6 +402,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_SM16716                               // Disable support for SM16716 RGB LED controller (+0k7 code)
 #undef USE_SM2135                                // Disable support for SM2135 RGBCW led control as used in Action LSC (+0k6 code)
 #undef USE_SONOFF_L1                             // Disable support for Sonoff L1 led control
+#undef USE_ELECTRIQ_MOODL                        // Add support for ElectriQ iQ-wifiMOODL RGBW LED controller
 
 #undef USE_ENERGY_SENSOR                         // Disable energy sensors (-14k code)
   #undef USE_PZEM004T                            // Disable PZEM004T energy sensor
@@ -370,11 +414,14 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
   #undef USE_DDS2382                             // Disable support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
   #undef USE_DDSU666                             // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
   #undef USE_SOLAX_X1                            // Disable support for Solax X1 series Modbus log info (+3k1 code)
+  #undef USE_LE01MR                              // Disable support for F&F LE-01MR Modbus energy meter (+2k code)
 
 //#undef USE_DS18x20                               // Disable support for DS18x20 sensors with id sort, single scan and read retry (+1k3 code)
 
 #undef USE_I2C                                   // Disable all I2C sensors
 #undef USE_SPI                                   // Disable all SPI devices
+
+#undef USE_DISPLAY                               // Disable support for displays
 
 #undef USE_MHZ19                                 // Disable support for MH-Z19 CO2 sensor
 #undef USE_SENSEAIR                              // Disable support for SenseAir K30, K70 and S8 CO2 sensor
@@ -388,6 +435,8 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_RDM6300                               // Disable support for RDM6300 125kHz RFID Reader (+0k8)
 #undef USE_IBEACON                               // Disable support for bluetooth LE passive scan of ibeacon devices (uses HM17 module)
 #undef USE_GPS                                   // Disable support for GPS and NTP Server for becoming Stratus 1 Time Source (+ 3.1kb flash, +132 bytes RAM)
+#undef USE_HM10                                  // Disable support for HM-10 as a BLE-bridge for the LYWSD03 (+5k1 code)
+#undef USE_HRXL                                  // Disable support for MaxBotix HRXL-MaxSonar ultrasonic range finders (+0k7)
 
 //#define USE_DHT                                  // Add support for DHT11, AM2301 (DHT21, DHT22, AM2302, AM2321) and SI7021 Temperature and Humidity sensor
 #undef USE_MAX31855                              // Disable MAX31855 K-Type thermocouple sensor using softSPI
@@ -396,6 +445,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_TM1638                                // Disable support for TM1638 switches copying Switch1 .. Switch8
 #undef USE_HX711                                 // Disable support for HX711 load cell
 #undef USE_TX20_WIND_SENSOR                      // Disable support for La Crosse TX20 anemometer
+#undef USE_TX23_WIND_SENSOR                      // Disable support for La Crosse TX23 anemometer
 #undef USE_RC_SWITCH                             // Disable support for RF transceiver using library RcSwitch
 #undef USE_RF_SENSOR                             // Disable support for RF sensor receiver (434MHz or 868MHz) (+0k8 code)
 #undef USE_HRE                                   // Disable support for Badger HR-E Water Meter (+1k4 code)
@@ -453,6 +503,11 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_DEEPSLEEP                             // Disable support for deepsleep (+1k code)
 #undef USE_EXS_DIMMER                            // Disable support for EX-Store WiFi Dimmer
 #undef USE_HOTPLUG                               // Disable support for HotPlug
+#undef USE_DEVICE_GROUPS                         // Disable support for device groups (+3k5 code)
+#undef USE_PWM_DIMMER                            // Disable support for MJ-SD01/acenx/NTONPOWER PWM dimmers (+4k5 code)
+#undef USE_PWM_DIMMER_REMOTE                     // Disbale support for remote switches to PWM Dimmer
+#undef USE_KEELOQ                                // Disable support for Jarolift rollers by Keeloq algorithm (+4k5 code)
+//#undef USE_SONOFF_D1                             // Disable support for Sonoff D1 Dimmer (+0k7 code)
 
 // -- Optional light modules ----------------------
 //#undef USE_LIGHT                                 // Also disable all Dimmer/Light support
@@ -461,6 +516,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_SM16716                               // Disable support for SM16716 RGB LED controller (+0k7 code)
 #undef USE_SM2135                                // Disable support for SM2135 RGBCW led control as used in Action LSC (+0k6 code)
 #undef USE_SONOFF_L1                             // Disable support for Sonoff L1 led control
+#undef USE_ELECTRIQ_MOODL                        // Add support for ElectriQ iQ-wifiMOODL RGBW LED controller
 
 #undef USE_COUNTER                               // Disable counters
 #define USE_ADC_VCC                              // Display Vcc in Power status. Disable for use as Analog input on selected devices
@@ -480,6 +536,8 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_RDM6300                               // Disable support for RDM6300 125kHz RFID Reader (+0k8)
 #undef USE_IBEACON                               // Disable support for bluetooth LE passive scan of ibeacon devices (uses HM17 module)
 #undef USE_GPS                                   // Disable support for GPS and NTP Server for becoming Stratus 1 Time Source (+ 3.1kb flash, +132 bytes RAM)
+#undef USE_HM10                                  // Disable support for HM-10 as a BLE-bridge for the LYWSD03 (+5k1 code)
+#undef USE_HRXL                                  // Disable support for MaxBotix HRXL-MaxSonar ultrasonic range finders (+0k7)
 
 //#undef USE_ENERGY_SENSOR                         // Disable energy sensors
 #undef USE_PZEM004T                              // Disable PZEM004T energy sensor
@@ -491,6 +549,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_DDS2382                               // Disable support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
 #undef USE_DDSU666                               // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
 #undef USE_SOLAX_X1                              // Disable support for Solax X1 series Modbus log info (+3k1 code)
+#undef USE_LE01MR                                // Disable support for F&F LE-01MR Modbus energy meter (+2k code)
 
 #undef USE_DHT                                   // Disable support for DHT11, AM2301 (DHT21, DHT22, AM2302, AM2321) and SI7021 Temperature and Humidity sensor
 #undef USE_MAX31855                              // Disable MAX31855 K-Type thermocouple sensor using softSPI
@@ -503,6 +562,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_TM1638                                // Disable support for TM1638 switches copying Switch1 .. Switch8
 #undef USE_HX711                                 // Disable support for HX711 load cell
 #undef USE_TX20_WIND_SENSOR                      // Disable support for La Crosse TX20 anemometer
+#undef USE_TX23_WIND_SENSOR                      // Disable support for La Crosse TX23 anemometer
 #undef USE_RC_SWITCH                             // Disable support for RF transceiver using library RcSwitch
 #undef USE_RF_SENSOR                             // Disable support for RF sensor receiver (434MHz or 868MHz) (+0k8 code)
 #undef USE_HRE                                   // Disable support for Badger HR-E Water Meter (+1k4 code)
@@ -564,6 +624,11 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_DEEPSLEEP                             // Disable support for deepsleep (+1k code)
 #undef USE_EXS_DIMMER                            // Disable support for EX-Store WiFi Dimmer
 #undef USE_HOTPLUG                               // Disable support for HotPlug
+#undef USE_DEVICE_GROUPS                         // Disable support for device groups (+3k5 code)
+#undef USE_PWM_DIMMER                            // Disable support for MJ-SD01/acenx/NTONPOWER PWM dimmers (+4k5 code)
+#undef USE_PWM_DIMMER_REMOTE                     // Disbale support for remote switches to PWM Dimmer
+#undef USE_KEELOQ                                // Disable support for Jarolift rollers by Keeloq algorithm (+4k5 code)
+#undef USE_SONOFF_D1                             // Disable support for Sonoff D1 Dimmer (+0k7 code)
 
 // -- Optional light modules ----------------------
 #undef USE_LIGHT                                 // Disable support for lights
@@ -572,6 +637,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_SM16716                               // Disable support for SM16716 RGB LED controller (+0k7 code)
 #undef USE_SM2135                                // Disable support for SM2135 RGBCW led control as used in Action LSC (+0k6 code)
 #undef USE_SONOFF_L1                             // Disable support for Sonoff L1 led control
+#undef USE_ELECTRIQ_MOODL                        // Add support for ElectriQ iQ-wifiMOODL RGBW LED controller
 
 #undef USE_COUNTER                               // Disable counters
 #define USE_ADC_VCC                              // Display Vcc in Power status. Disable for use as Analog input on selected devices
@@ -593,6 +659,8 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_RDM6300                               // Disable support for RDM6300 125kHz RFID Reader (+0k8)
 #undef USE_IBEACON                               // Disable support for bluetooth LE passive scan of ibeacon devices (uses HM17 module)
 #undef USE_GPS                                   // Disable support for GPS and NTP Server for becoming Stratus 1 Time Source (+ 3.1kb flash, +132 bytes RAM)
+#undef USE_HM10                                  // Disable support for HM-10 as a BLE-bridge for the LYWSD03 (+5k1 code)
+#undef USE_HRXL                                  // Disable support for MaxBotix HRXL-MaxSonar ultrasonic range finders (+0k7)
 
 #undef USE_ENERGY_SENSOR                         // Disable energy sensors
 #undef USE_PZEM004T                              // Disable PZEM004T energy sensor
@@ -604,6 +672,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_DDS2382                               // Disable support for Hiking DDS2382 Modbus energy monitor (+0k6 code)
 #undef USE_DDSU666                               // Disable support for Chint DDSU666 Modbus energy monitor (+0k6 code)
 #undef USE_SOLAX_X1                              // Disable support for Solax X1 series Modbus log info (+3k1 code)
+#undef USE_LE01MR                                // Disable support for F&F LE-01MR Modbus energy meter (+2k code)
 
 #undef USE_DHT                                   // Disable support for DHT11, AM2301 (DHT21, DHT22, AM2302, AM2321) and SI7021 Temperature and Humidity sensor
 #undef USE_MAX31855                              // Disable MAX31855 K-Type thermocouple sensor using softSPI
@@ -613,6 +682,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #undef USE_TM1638                                // Disable support for TM1638 switches copying Switch1 .. Switch8
 #undef USE_HX711                                 // Disable support for HX711 load cell
 #undef USE_TX20_WIND_SENSOR                      // Disable support for La Crosse TX20 anemometer
+#undef USE_TX23_WIND_SENSOR                      // Disable support for La Crosse TX23 anemometer
 #undef USE_RC_SWITCH                             // Disable support for RF transceiver using library RcSwitch
 #undef USE_RF_SENSOR                             // Disable support for RF sensor receiver (434MHz or 868MHz) (+0k8 code)
 #undef USE_HRE                                   // Disable support for Badger HR-E Water Meter (+1k4 code)
@@ -655,7 +725,7 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #endif
 
 #ifndef MQTT_MAX_PACKET_SIZE
-#define MQTT_MAX_PACKET_SIZE   1000              // Bytes
+#define MQTT_MAX_PACKET_SIZE   1200              // Bytes
 #endif
 #ifndef MQTT_KEEPALIVE
 #define MQTT_KEEPALIVE         30                // Seconds
@@ -668,11 +738,11 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #endif
 
 #ifndef MESSZ
-//#define MESSZ                  893               // Max number of characters in JSON message string (Hass discovery and nice MQTT_MAX_PACKET_SIZE = 1000)
+//#define MESSZ                  1040            // Max number of characters in JSON message string (Hass discovery and nice MQTT_MAX_PACKET_SIZE = 1200)
 #define MESSZ                  (MQTT_MAX_PACKET_SIZE -TOPSZ -7)  // Max number of characters in JSON message string
 #endif
 
-//#include <core_version.h>                        // Arduino_Esp8266 version information (ARDUINO_ESP8266_RELEASE and ARDUINO_ESP8266_RELEASE_2_3_0)
+//#include <core_version.h>                      // Arduino_Esp8266 version information (ARDUINO_ESP8266_RELEASE and ARDUINO_ESP8266_RELEASE_2_3_0)
 #ifndef ARDUINO_ESP8266_RELEASE
 #define ARDUINO_ESP8266_RELEASE "STAGE"
 #endif
@@ -680,6 +750,14 @@ extern "C" void custom_crash_callback(struct rst_info * rst_info, uint32_t stack
 #ifdef ARDUINO_ESP8266_RELEASE_2_3_0             // Disable not supported features in core 2.3.0
 #undef USE_MQTT_TLS_CA_CERT
 #endif
+
+#ifdef USE_DEVICE_GROUPS
+#define SendDeviceGroupMessage(DEVICE_INDEX, REQUEST_TYPE, ...) _SendDeviceGroupMessage(DEVICE_INDEX, REQUEST_TYPE, __VA_ARGS__, 0)
+#define SendLocalDeviceGroupMessage(REQUEST_TYPE, ...) _SendDeviceGroupMessage(0, REQUEST_TYPE, __VA_ARGS__, 0)
+#define DEVICE_GROUP_MESSAGE "M-TASMOTA_DGR/"
+const char kDeviceGroupMessage[] PROGMEM = DEVICE_GROUP_MESSAGE;
+uint8_t device_group_count = 1;
+#endif  // USE_DEVICE_GROUPS
 
 #ifdef DEBUG_TASMOTA_CORE
 #define DEBUG_CORE_LOG(...) AddLog_Debug(__VA_ARGS__)

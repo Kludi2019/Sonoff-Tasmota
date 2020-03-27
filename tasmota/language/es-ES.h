@@ -79,6 +79,7 @@
 #define D_DATA "Datos"
 #define D_DARKLIGHT "Oscuro"
 #define D_DEBUG "Debug"
+#define D_DEWPOINT "Dew point"
 #define D_DISABLED "Deshabilitado"
 #define D_DISTANCE "Distancia"
 #define D_DNS_SERVER "Servidor DNS"
@@ -505,12 +506,32 @@
 //xsns_35_tx20.ino
 #define D_TX20_WIND_DIRECTION "Dirección del Viento"
 #define D_TX20_WIND_SPEED "Vel. del Viento"
-#define D_TX20_WIND_SPEED_AVG "Vel. Prom. del Viento"
+#define D_TX20_WIND_SPEED_MIN "Vel. Min. del Viento"
 #define D_TX20_WIND_SPEED_MAX "Vel. Max. del Viento"
 #define D_TX20_NORTH "N"
 #define D_TX20_EAST "E"
 #define D_TX20_SOUTH "S"
 #define D_TX20_WEST "O"
+
+// xsns_53_sml.ino
+#define D_TPWRIN "Energía Total-Entrada"
+#define D_TPWROUT "Energía Total-Salida"
+#define D_TPWRCURR "Potencia-En/Sal"
+#define D_TPWRCURR1 "Potencia-Entr p1"
+#define D_TPWRCURR2 "Potencia-Entr p2"
+#define D_TPWRCURR3 "Potencia-Entr p3"
+#define D_Strom_L1 "Corriente L1"
+#define D_Strom_L2 "Corriente L2"
+#define D_Strom_L3 "Corriente L3"
+#define D_Spannung_L1 "Voltaje L1"
+#define D_Spannung_L2 "Voltaje L2"
+#define D_Spannung_L3 "Voltaje L3"
+#define D_METERNR "Número de Medidor"
+#define D_METERSID "ID de Servicio"
+#define D_GasIN "Contador"
+#define D_H2oIN "Contador"
+#define D_StL1L2L3 "Corriente L1+L2+L3"
+#define D_SpL1L2L3 "Voltaje L1+L2+L3/3"
 
 // tasmota_template.h - keep them as short as possible to be able to fit them in GUI drop down box
 #define D_SENSOR_NONE          "Ninguno"
@@ -564,7 +585,7 @@
 #define D_SENSOR_TM1638_STB    "TM16 STB"
 #define D_SENSOR_HX711_SCK     "HX711 SCK"
 #define D_SENSOR_HX711_DAT     "HX711 DAT"
-#define D_SENSOR_TX20_TX       "TX20"
+#define D_SENSOR_TX2X_TX       "TX2x"
 #define D_SENSOR_RFSEND        "RFSend"
 #define D_SENSOR_RFRECV        "RFrecv"
 #define D_SENSOR_TUYA_TX       "Tuya Tx"
@@ -635,6 +656,14 @@
 #define D_SENSOR_SLAVE_RESET   "Slave RST"
 #define D_SENSOR_GPS_RX        "GPS RX"
 #define D_SENSOR_GPS_TX        "GPS TX"
+#define D_SENSOR_HM10_RX       "HM10 RX"
+#define D_SENSOR_HM10_TX       "HM10 TX"
+#define D_SENSOR_LE01MR_RX     "LE-01MR Rx"
+#define D_SENSOR_LE01MR_TX     "LE-01MR Tx"
+#define D_SENSOR_CC1101_GDO0   "CC1101 GDO0"
+#define D_SENSOR_CC1101_GDO2   "CC1101 GDO2"
+#define D_SENSOR_HRXL_RX       "HRXL Rx"
+#define D_SENSOR_ELECTRIQ_MOODL "MOODL Tx"
 
 // Units
 #define D_UNIT_AMPERE "A"
@@ -670,7 +699,7 @@
 #define D_UNIT_WATTHOUR "Wh"
 #define D_UNIT_WATT_METER_QUADRAT "W/m²"
 
-//SDM220
+//SDM220, SDM120, LE01MR
 #define D_PHASE_ANGLE     "Ángulo de Fase"
 #define D_IMPORT_ACTIVE   "P. Activa Entrante"
 #define D_EXPORT_ACTIVE   "P. Activa Saliente"
@@ -679,12 +708,13 @@
 #define D_TOTAL_REACTIVE  "P. Reactiva Total"
 #define D_UNIT_KWARH      "kVArH"
 #define D_UNIT_ANGLE      "Grados"
+#define D_TOTAL_ACTIVE    "P. Total Activa"
 
 //SOLAXX1
 #define D_PV1_VOLTAGE     "PV1 Voltaje"
 #define D_PV1_CURRENT     "PV1 Corriente"
 #define D_PV1_POWER       "PV1 Potencia"
-#define D_PV2_VOLTAGE     "PV2 Voltaee"
+#define D_PV2_VOLTAGE     "PV2 Voltaje"
 #define D_PV2_CURRENT     "PV2 Corriente"
 #define D_PV2_POWER       "PV2 Potencia"
 #define D_SOLAR_POWER     "Potencia Solar"

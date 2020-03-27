@@ -188,6 +188,7 @@ char *GetStringResult(char *lp,uint8_t lastop,char *cp,JsonObject *jo);
 char *ForceStringVar(char *lp,char *dstr);
 void send_download(void);
 uint8_t reject(char *name);
+extern uint8_t sml_status;
 
 void ScriptEverySecond(void) {
 

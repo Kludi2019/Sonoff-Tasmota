@@ -68,6 +68,7 @@ struct TUYA {
   int byte_counter = 0;                  // Index in serial receive buffer
   bool low_power_mode = false;           // Normal or Low power mode protocol
   bool send_success_next_second = false; // Second command success in low power mode
+  uint32_t ignore_dimmer_cmd_timeout = 0;// Time until which received dimmer commands should be ignored
 } Tuya;
 
 
@@ -114,6 +115,7 @@ void (* const TuyaCommand[])(void) PROGMEM = {
 
 TuyaSend<x> dpId,data
 
+TuyaSend0 -> Sends TUYA_CMD_QUERY_STATE
 TuyaSend1 11,1 -> Sends boolean (Type 1) data 0/1 to dpId 11 (Max data length 1 byte)
 TuyaSend2 11,100 -> Sends integer (Type 2) data 100 to dpId 11 (Max data length 4 bytes)
 TuyaSend2 11,0xAABBCCDD -> Sends 4 bytes (Type 2) data to dpId 11 (Max data length 4 bytes)
@@ -124,9 +126,13 @@ TuyaSend4 11,1 -> Sends enum (Type 4) data 0/1/2/3/4/5 to dpId 11 (Max data leng
 
 
 void CmndTuyaSend(void) {
-  if ((XdrvMailbox.index > 0) && (XdrvMailbox.index <= 4)) {
+  if (XdrvMailbox.index > 4) {
+    return;
+  }
+  if (XdrvMailbox.index == 0) {
+    TuyaRequestState();
+  } else {
     if (XdrvMailbox.data_len > 0) {
-
       char *p;
       char *data;
       uint8_t i = 0;
@@ -150,8 +156,8 @@ void CmndTuyaSend(void) {
         TuyaSendEnum(dpId, strtoul(data, nullptr, 0));
       }
     }
-    ResponseCmndDone();
   }
+  ResponseCmndDone();
 }
 
 /*
@@ -361,6 +367,7 @@ bool TuyaSetPower(void)
 
   if (source != SRC_SWITCH && TuyaSerial) {  // ignore to prevent loop from pushing state from faceplate interaction
     TuyaSendBool(dpid, bitRead(rpower, active_device-1) ^ bitRead(rel_inverted, active_device-1));
+    delay(20); // Hack when power is off and dimmer is set then both commands go too soon to Serial out.
     status = true;
   }
   return status;
@@ -369,7 +376,7 @@ bool TuyaSetPower(void)
 bool TuyaSetChannels(void)
 {
   LightSerialDuty(((uint8_t*)XdrvMailbox.data)[0]);
-  delay(20); // Hack when power is off and dimmer is set then both commands go too soon to Serial out.
+  //delay(20); // Hack when power is off and dimmer is set then both commands go too soon to Serial out.
   return true;
 }
 
@@ -381,6 +388,7 @@ void LightSerialDuty(uint16_t duty)
     if (duty < Settings.dimmer_hw_min) { duty = Settings.dimmer_hw_min; }  // dimming acts odd below 25(10%) - this mirrors the threshold set on the faceplate itself
     if (Tuya.new_dim != duty) {
       AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: Send dim value=%d (id=%d)"), duty, dpid);
+      Tuya.ignore_dimmer_cmd_timeout = millis() + 250; // Ignore serial received dim commands for the next 250ms
       TuyaSendValue(dpid, duty);
     }
   } else if (dpid > 0) {
@@ -451,12 +459,14 @@ void TuyaProcessStatePacket(void) {
         if (fnId == TUYA_MCU_FUNC_DIMMER) {
           AddLog_P2(LOG_LEVEL_DEBUG, PSTR("TYA: RX Dim State=%d"), packetValue);
           Tuya.new_dim = changeUIntScale(packetValue, 0, Settings.dimmer_hw_max, 0, 100);
-          if ((power || Settings.flag3.tuya_apply_o20) &&  // SetOption54 - Apply SetOption20 settings to Tuya device
-              (Tuya.new_dim > 0) && (abs(Tuya.new_dim - Settings.light_dimmer) > 1)) {
-            Tuya.ignore_dim = true;
+          if (Tuya.ignore_dimmer_cmd_timeout < millis()) {
+            if ((power || Settings.flag3.tuya_apply_o20) &&  // SetOption54 - Apply SetOption20 settings to Tuya device
+                (Tuya.new_dim > 0) && (abs(Tuya.new_dim - Settings.light_dimmer) > 1)) {
+              Tuya.ignore_dim = true;
 
-            snprintf_P(scmnd, sizeof(scmnd), PSTR(D_CMND_DIMMER " %d"), Tuya.new_dim );
-            ExecuteCommand(scmnd, SRC_SWITCH);
+              snprintf_P(scmnd, sizeof(scmnd), PSTR(D_CMND_DIMMER "3 %d"), Tuya.new_dim );
+              ExecuteCommand(scmnd, SRC_SWITCH);
+            }
           }
         }
 
@@ -682,10 +692,31 @@ void TuyaSerialInput(void)
           // 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19
           uint8_t dpidStart = 6;
           while (dpidStart + 4 < Tuya.byte_counter) {
+            uint8_t dpId = Tuya.buffer[dpidStart];
+            uint8_t dpDataType = Tuya.buffer[dpidStart + 1];
             uint16_t dpDataLen = Tuya.buffer[dpidStart + 2] << 8 | Tuya.buffer[dpidStart + 3];
-            ResponseAppend_P(PSTR(",\"%d\":{\"DpId\":%d,\"DpIdType\":%d,\"DpIdData\":\"%s\""), Tuya.buffer[dpidStart], Tuya.buffer[dpidStart], Tuya.buffer[dpidStart + 1], ToHex_P((unsigned char*)&Tuya.buffer[dpidStart + 4], dpDataLen, hex_char, sizeof(hex_char)));
-            if (TUYA_TYPE_STRING == Tuya.buffer[dpidStart + 1]) {
-              ResponseAppend_P(PSTR(",\"Type3Data\":\"%.*s\""), dpDataLen, (char *)&Tuya.buffer[dpidStart + 4]);
+            const unsigned char *dpData = (unsigned char*)&Tuya.buffer[dpidStart + 4];
+            const char *dpHexData = ToHex_P(dpData, dpDataLen, hex_char, sizeof(hex_char));
+
+            if (TUYA_CMD_STATE == Tuya.buffer[3]) {
+              ResponseAppend_P(PSTR(",\"DpType%uId%u\":"), dpDataType, dpId);
+              if (TUYA_TYPE_BOOL == dpDataType && dpDataLen == 1) {
+                ResponseAppend_P(PSTR("%u"), dpData[0]);
+              } else if (TUYA_TYPE_VALUE == dpDataType && dpDataLen == 4) {
+                uint32_t dpValue = (uint32_t)dpData[0] << 24 | (uint32_t)dpData[1] << 16 | (uint32_t)dpData[2] << 8 | (uint32_t)dpData[3] << 0;
+                ResponseAppend_P(PSTR("%u"), dpValue);
+              } else if (TUYA_TYPE_STRING == dpDataType) {
+                ResponseAppend_P(PSTR("\"%.*s\""), dpDataLen, dpData);
+              } else if (TUYA_TYPE_ENUM == dpDataType && dpDataLen == 1) {
+                ResponseAppend_P(PSTR("%u"), dpData[0]);
+              } else {
+                ResponseAppend_P(PSTR("\"0x%s\""), dpHexData);
+              }
+            }
+
+            ResponseAppend_P(PSTR(",\"%d\":{\"DpId\":%d,\"DpIdType\":%d,\"DpIdData\":\"%s\""), dpId, dpId, dpDataType, dpHexData);
+            if (TUYA_TYPE_STRING == dpDataType) {
+              ResponseAppend_P(PSTR(",\"Type3Data\":\"%.*s\""), dpDataLen, dpData);
             }
             ResponseAppend_P(PSTR("}"));
             dpidStart += dpDataLen + 4;

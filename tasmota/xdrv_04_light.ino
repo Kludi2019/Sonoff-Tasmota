@@ -545,6 +545,9 @@ class LightStateClass {
 #ifdef DEBUG_LIGHT
       AddLog_P2(LOG_LEVEL_DEBUG_MORE, "LightStateClass::setBri RGB raw (%d %d %d) HS (%d %d) bri (%d)", _r, _g, _b, _hue, _sat, _briRGB);
 #endif
+#ifdef USE_PWM_DIMMER
+  if (PWM_DIMMER == my_module_type) PWMDimmerSetBrightnessLeds(0);
+#endif  // USE_PWM_DIMMER
     }
 
     // changes the RGB brightness alone
@@ -1767,6 +1770,10 @@ void LightAnimate(void)
       Light.update = true;
     }
     if (Light.update) {
+#ifdef USE_DEVICE_GROUPS
+      if (Light.power) LightSendDeviceGroupStatus();
+#endif  // USE_DEVICE_GROUPS
+
       uint16_t cur_col_10[LST_MAX];   // 10 bits resolution
       Light.update = false;
 
@@ -1816,9 +1823,13 @@ void LightAnimate(void)
       }
 
       // final adjusments for PMW, post-gamma correction
+      uint16_t min = 1;
+#ifdef USE_PWM_DIMMER
+      if (PWM_DIMMER == my_module_type) min = Settings.dimmer_hw_min;
+#endif  // USE_PWM_DIMMER
       for (uint32_t i = 0; i < LST_MAX; i++) {
         // scale from 0..1023 to 0..pwm_range, but keep any non-zero value to at least 1
-        cur_col_10[i] = (cur_col_10[i] > 0) ? changeUIntScale(cur_col_10[i], 1, 1023, 1, Settings.pwm_range) : 0;
+        cur_col_10[i] = (cur_col_10[i] > 0) ? changeUIntScale(cur_col_10[i], 1, 1023, min, Settings.pwm_range) : 0;
       }
 
       // apply port remapping on both 8 bits and 10 bits versions
@@ -1828,7 +1839,7 @@ void LightAnimate(void)
         cur_col_10[i] = orig_col_10bits[Light.color_remap[i]];
       }
 
-      if (!Settings.light_fade || power_off || (!Light.fade_initialized)) { // no fade
+      if (!Settings.light_fade || skip_light_fade || power_off || (!Light.fade_initialized)) { // no fade
         // record the current value for a future Fade
         memcpy(Light.fade_start_10, cur_col_10, sizeof(Light.fade_start_10));
         // push the final values at 8 and 10 bits resolution to the PWMs
@@ -1854,6 +1865,10 @@ void LightAnimate(void)
         LightSetOutputs(Light.fade_cur_10);
       }
     }
+#ifdef USE_PWM_DIMMER
+    // If the power is off and the fade is done, turn the relay off.
+    if (PWM_DIMMER == my_module_type && !Light.power && !Light.fade_running) PWMDimmerSetPower();
+#endif  // USE_PWM_DIMMER
   }
 }
 
@@ -2030,38 +2045,40 @@ void calcGammaMultiChannels(uint16_t cur_col_10[5]) {
 
 void calcGammaBulbs(uint16_t cur_col_10[5]) {
   // Apply gamma correction for 8 and 10 bits resolutions, if needed
-  if (Settings.light_correction) {
-    // First apply combined correction to the overall white power
-    if ((LST_COLDWARM == Light.subtype) || (LST_RGBCW == Light.subtype)) {
-      // channels for white are always the last two channels
-      uint32_t cw1 = Light.subtype - 1;       // address for the ColorTone PWM
-      uint32_t cw0 = Light.subtype - 2;       // address for the White Brightness PWM
-      uint16_t white_bri10 = cur_col_10[cw0] + cur_col_10[cw1];   // cumulated brightness
-      uint16_t white_bri10_1023 = (white_bri10 > 1023) ? 1023 : white_bri10;    // max 1023
 
-      if (PHILIPS == my_module_type) {   // channel 1 is the color tone, mapped to cold channel (0..255)
-        // Xiaomi Philips bulbs follow a different scheme:
-        cur_col_10[cw1] = light_state.getCT10bits();
-        // channel 0=intensity, channel1=temperature
-        if (Settings.light_correction) { // gamma correction
-          cur_col_10[cw0] = ledGamma10_10(white_bri10_1023);    // 10 bits gamma correction
-        } else {
-          cur_col_10[cw0] = white_bri10_1023;  // no gamma, extend to 10 bits
-        }
+  // First apply combined correction to the overall white power
+  if ((LST_COLDWARM == Light.subtype) || (LST_RGBCW == Light.subtype)) {
+    // channels for white are always the last two channels
+    uint32_t cw1 = Light.subtype - 1;       // address for the ColorTone PWM
+    uint32_t cw0 = Light.subtype - 2;       // address for the White Brightness PWM
+    uint16_t white_bri10 = cur_col_10[cw0] + cur_col_10[cw1];   // cumulated brightness
+    uint16_t white_bri10_1023 = (white_bri10 > 1023) ? 1023 : white_bri10;    // max 1023
+
+    if (PHILIPS == my_module_type) {   // channel 1 is the color tone, mapped to cold channel (0..255)
+      // Xiaomi Philips bulbs follow a different scheme:
+      cur_col_10[cw1] = light_state.getCT10bits();
+      // channel 0=intensity, channel1=temperature
+      if (Settings.light_correction) { // gamma correction
+        cur_col_10[cw0] = ledGamma10_10(white_bri10_1023);    // 10 bits gamma correction
       } else {
-        // if sum of both channels is > 255, then channels are probably uncorrelated
-        if (white_bri10 <= 1031) {      // take a margin of 8 above 1023 to account for rounding errors
-          // we calculate the gamma corrected sum of CW + WW
-          uint16_t white_bri_gamma10 = ledGamma10_10(white_bri10_1023);
-          // then we split the total energy among the cold and warm leds
-          cur_col_10[cw0] = changeUIntScale(cur_col_10[cw0], 0, white_bri10_1023, 0, white_bri_gamma10);
-          cur_col_10[cw1] = changeUIntScale(cur_col_10[cw1], 0, white_bri10_1023, 0, white_bri_gamma10);
-        } else {
-          cur_col_10[cw0] = ledGamma10_10(cur_col_10[cw0]);
-          cur_col_10[cw1] = ledGamma10_10(cur_col_10[cw1]);
-        }
+        cur_col_10[cw0] = white_bri10_1023;  // no gamma, extend to 10 bits
+      }
+    } else if (Settings.light_correction) {
+      // if sum of both channels is > 255, then channels are probably uncorrelated
+      if (white_bri10 <= 1031) {      // take a margin of 8 above 1023 to account for rounding errors
+        // we calculate the gamma corrected sum of CW + WW
+        uint16_t white_bri_gamma10 = ledGamma10_10(white_bri10_1023);
+        // then we split the total energy among the cold and warm leds
+        cur_col_10[cw0] = changeUIntScale(cur_col_10[cw0], 0, white_bri10_1023, 0, white_bri_gamma10);
+        cur_col_10[cw1] = changeUIntScale(cur_col_10[cw1], 0, white_bri10_1023, 0, white_bri_gamma10);
+      } else {
+        cur_col_10[cw0] = ledGamma10_10(cur_col_10[cw0]);
+        cur_col_10[cw1] = ledGamma10_10(cur_col_10[cw1]);
       }
     }
+  }
+
+  if (Settings.light_correction) {
     // then apply gamma correction to RGB channels
     if (LST_RGB <= Light.subtype) {
       for (uint32_t i = 0; i < 3; i++) {
@@ -2069,11 +2086,110 @@ void calcGammaBulbs(uint16_t cur_col_10[5]) {
       }
     }
     // If RGBW or Single channel, also adjust White channel
-    if ((LST_COLDWARM != Light.subtype) && (LST_RGBCW != Light.subtype)) {
-      cur_col_10[3] = ledGamma10_10(cur_col_10[3]);
+    if ((LST_SINGLE == Light.subtype) || (LST_RGBW == Light.subtype)) {
+      cur_col_10[Light.subtype - 1] = ledGamma10_10(cur_col_10[Light.subtype - 1]);
     }
   }
 }
+
+#ifdef USE_DEVICE_GROUPS
+void LightSendDeviceGroupStatus()
+{
+  if (Light.subtype > LST_SINGLE) {
+    uint8_t channels[LST_MAX];
+    light_state.getChannels(channels);
+    SendLocalDeviceGroupMessage(DGR_MSGTYP_PARTIAL_UPDATE, DGR_ITEM_LIGHT_CHANNELS, channels);
+  }
+  SendLocalDeviceGroupMessage(DGR_MSGTYP_UPDATE, DGR_ITEM_LIGHT_SCHEME, Settings.light_scheme,
+    DGR_ITEM_LIGHT_BRI, light_state.getBri());
+}
+
+void LightHandleDeviceGroupItem()
+{
+  static bool send_state = false;
+  static bool restore_power = false;
+  bool more_to_come;
+  uint32_t value = XdrvMailbox.payload;
+#ifdef USE_PWM_DIMMER_REMOTE
+  if (XdrvMailbox.index & 0xff00) return; // Ignore updates from other device groups
+#endif  // USE_PWM_DIMMER_REMOTE
+  switch (XdrvMailbox.command_code) {
+    case DGR_ITEM_EOL:
+      more_to_come = (XdrvMailbox.index & DGR_FLAG_MORE_TO_COME);
+      if (restore_power && !more_to_come) {
+        restore_power = false;
+        Light.power = Light.old_power;
+      }
+
+      LightAnimate();
+
+      if (send_state && !more_to_come) {
+        light_controller.saveSettings();
+        if (Settings.flag3.hass_tele_on_power) {  // SetOption59 - Send tele/%topic%/STATE in addition to stat/%topic%/RESULT
+          MqttPublishTeleState();
+        }
+        send_state = false;
+      }
+      break;
+    case DGR_ITEM_LIGHT_BRI:
+      if (light_state.getBri() != value) {
+        light_state.setBri(value);
+        send_state = true;
+      }
+      break;
+    case DGR_ITEM_LIGHT_SCHEME:
+      if (Settings.light_scheme != value) {
+        Settings.light_scheme = value;
+        send_state = true;
+      }
+      break;
+    case DGR_ITEM_LIGHT_CHANNELS:
+      light_controller.changeChannels((uint8_t *)XdrvMailbox.data);
+      send_state = true;
+      break;
+    case DGR_ITEM_LIGHT_FIXED_COLOR:
+      if (Light.subtype >= LST_RGBW) {
+        if (value) {
+          bool save_decimal_text = Settings.flag.decimal_text;
+          char str[16];
+          LightColorEntry(str, sprintf_P(str, PSTR("%u"), value));
+          Settings.flag.decimal_text = save_decimal_text;
+          uint32_t old_bri = light_state.getBri();
+          light_controller.changeChannels(Light.entry_color);
+          light_controller.changeBri(old_bri);
+          Settings.light_scheme = 0;
+        }
+        else {
+          light_state.setColorMode(LCM_CT);
+        }
+        if (!restore_power && !Light.power) {
+          Light.old_power = Light.power;
+          Light.power = 0xff;
+          restore_power = true;
+        }
+        send_state = true;
+      }
+      break;
+    case DGR_ITEM_LIGHT_FADE:
+      if (Settings.light_fade != value) {
+        Settings.light_fade = value;
+        send_state = true;
+      }
+      break;
+    case DGR_ITEM_LIGHT_SPEED:
+      if (Settings.light_speed != value && value > 0 && value <= 40) {
+        Settings.light_speed = value;
+        send_state = true;
+      }
+      break;
+    case DGR_ITEM_STATUS:
+      SendLocalDeviceGroupMessage(DGR_MSGTYP_PARTIAL_UPDATE, DGR_ITEM_LIGHT_FADE, Settings.light_fade,
+        DGR_ITEM_LIGHT_SPEED, Settings.light_speed);
+      LightSendDeviceGroupStatus();
+      break;
+  }
+}
+#endif  // USE_DEVICE_GROUPS
 
 /*********************************************************************************************\
  * Commands
@@ -2337,6 +2453,9 @@ void CmndScheme(void)
         Light.wheel = parm[1];
       }
       Settings.light_scheme = XdrvMailbox.payload;
+#ifdef USE_DEVICE_GROUPS
+      SendLocalDeviceGroupMessage(DGR_MSGTYP_UPDATE, DGR_ITEM_LIGHT_SCHEME, Settings.light_scheme);
+#endif  // USE_DEVICE_GROUPS
       if (LS_WAKEUP == Settings.light_scheme) {
         Light.wakeup_active = 3;
       }
@@ -2396,10 +2515,17 @@ void CmndDimmer(void)
   // Dimmer0 0..100 - Change both RGB and W(W) Dimmers
   // Dimmer1 0..100 - Change RGB Dimmer
   // Dimmer2 0..100 - Change W(W) Dimmer
+  // Dimmer3 0..100 - Change both RGB and W(W) Dimmers with no fading
   // Dimmer<x> +    - Incerement Dimmer in steps of 10
   // Dimmer<x> -    - Decrement Dimmer in steps of 10
   uint32_t dimmer;
-  if (XdrvMailbox.index > 2) { XdrvMailbox.index = 1; }
+  if (XdrvMailbox.index == 3) {
+    skip_light_fade = true;
+    XdrvMailbox.index = 0;
+  }
+  else if (XdrvMailbox.index > 2) {
+    XdrvMailbox.index = 1;
+  }
 
   if ((light_controller.isCTRGBLinked()) || (0 == XdrvMailbox.index)) {
     dimmer = light_state.getDimmer();
@@ -2431,10 +2557,16 @@ void CmndDimmer(void)
         LightPreparePower();
       }
     }
+#if defined(USE_PWM_DIMMER) && defined(USE_DEVICE_GROUPS)
+    Settings.bri_power_on = light_state.getBri();;
+    SendLocalDeviceGroupMessage(DGR_MSGTYP_UPDATE, DGR_ITEM_BRI_POWER_ON, Settings.bri_power_on);
+#endif  // USE_PWM_DIMMER && USE_DEVICE_GROUPS
     Light.update = true;
+    if (skip_light_fade) LightAnimate();
   } else {
     ResponseCmndNumber(dimmer);
   }
+  skip_light_fade = false;
 }
 
 void CmndDimmerRange(void)
@@ -2453,7 +2585,7 @@ void CmndDimmerRange(void)
       Settings.dimmer_hw_min = parm[1];
       Settings.dimmer_hw_max = parm[0];
     }
-    restart_flag = 2;
+    if (PWM_DIMMER != my_module_type) restart_flag = 2;
   }
   Response_P(PSTR("{\"" D_CMND_DIMMER_RANGE "\":{\"Min\":%d,\"Max\":%d}}"), Settings.dimmer_hw_min, Settings.dimmer_hw_max);
 }
@@ -2514,7 +2646,12 @@ void CmndFade(void)
     Settings.light_fade ^= 1;
     break;
   }
+#ifdef USE_DEVICE_GROUPS
+  if (XdrvMailbox.payload >= 0 && XdrvMailbox.payload <= 2) SendLocalDeviceGroupMessage(DGR_MSGTYP_UPDATE, DGR_ITEM_LIGHT_FADE, Settings.light_fade);
+#endif  // USE_DEVICE_GROUPS
+#ifdef USE_LIGHT
   if (!Settings.light_fade) { Light.fade_running = false; }
+#endif  // USE_LIGHT
   ResponseCmndStateText(Settings.light_fade);
 }
 
@@ -2534,6 +2671,9 @@ void CmndSpeed(void)
   }
   if ((XdrvMailbox.payload > 0) && (XdrvMailbox.payload <= 40)) {
     Settings.light_speed = XdrvMailbox.payload;
+#ifdef USE_DEVICE_GROUPS
+    SendLocalDeviceGroupMessage(DGR_MSGTYP_UPDATE, DGR_ITEM_LIGHT_SPEED, Settings.light_speed);
+#endif  // USE_DEVICE_GROUPS
   }
   ResponseCmndNumber(Settings.light_speed);
 }
@@ -2569,7 +2709,7 @@ bool Xdrv04(uint8_t function)
   bool result = false;
 
   if (FUNC_MODULE_INIT == function) {
-    return LightModuleInit();
+      return LightModuleInit();
   }
   else if (light_type) {
     switch (function) {
@@ -2586,6 +2726,11 @@ bool Xdrv04(uint8_t function)
       case FUNC_EVERY_50_MSECOND:
         LightAnimate();
         break;
+#ifdef USE_DEVICE_GROUPS
+      case FUNC_DEVICE_GROUP_ITEM:
+        LightHandleDeviceGroupItem();
+        break;
+#endif  // USE_DEVICE_GROUPS
       case FUNC_SET_POWER:
         LightSetPower();
         break;

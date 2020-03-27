@@ -902,7 +902,7 @@ uint8_t dchars[16];
 }
 
 #ifdef ED300L
-uint8_t sml_status
+uint8_t sml_status;
 #endif
 
 // skip sml entries

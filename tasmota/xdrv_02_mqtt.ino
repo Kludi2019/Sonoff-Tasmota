@@ -164,7 +164,7 @@ void MqttDiscoverServer(void)
 
 // Max message size calculated by PubSubClient is (MQTT_MAX_PACKET_SIZE < 5 + 2 + strlen(topic) + plength)
 #if (MQTT_MAX_PACKET_SIZE -TOPSZ -7) < MIN_MESSZ  // If the max message size is too small, throw an error at compile time. See PubSubClient.cpp line 359
-  #error "MQTT_MAX_PACKET_SIZE is too small in libraries/PubSubClient/src/PubSubClient.h, increase it to at least 1000"
+  #error "MQTT_MAX_PACKET_SIZE is too small in libraries/PubSubClient/src/PubSubClient.h, increase it to at least 1200"
 #endif
 
 #ifdef USE_MQTT_TLS
@@ -314,7 +314,7 @@ void MqttPublish(const char* topic, bool retained)
   ShowFreeMem(PSTR("MqttPublish"));
 #endif
 
-#if defined(USE_MQTT_TLS) && defined(USE_MQTT_AWS_IOT)
+#if defined(USE_MQTT_TLS) && defined(USE_MQTT_AWS_IOT) || defined(MQTT_NO_RETAIN)
 //  if (retained) {
 //    AddLog_P(LOG_LEVEL_INFO, S_LOG_MQTT, PSTR("Retained are not supported by AWS IoT, using retained = false."));
 //  }
@@ -362,7 +362,7 @@ void MqttPublishPrefixTopic_P(uint32_t prefix, const char* subtopic, bool retain
  * prefix 5 = stat using subtopic or RESULT
  * prefix 6 = tele using subtopic or RESULT
  */
-  char romram[33];
+  char romram[64];
   char stopic[TOPSZ];
 
   snprintf_P(romram, sizeof(romram), ((prefix > 3) && !Settings.flag.mqtt_response) ? S_RSLT_RESULT : subtopic);  // SetOption4 - Switch between MQTT RESULT or COMMAND
@@ -372,6 +372,36 @@ void MqttPublishPrefixTopic_P(uint32_t prefix, const char* subtopic, bool retain
   prefix &= 3;
   GetTopic_P(stopic, prefix, mqtt_topic, romram);
   MqttPublish(stopic, retained);
+
+#ifdef USE_MQTT_AWS_IOT
+  if ((prefix > 0) && (Settings.flag4.awsiot_shadow)) {    // placeholder for SetOptionXX
+    // compute the target topic
+    char *topic = SettingsText(SET_MQTT_TOPIC);
+    char topic2[strlen(topic)+1];       // save buffer onto stack
+    strcpy(topic2, topic);
+    // replace any '/' with '_'
+    char *s = topic2;
+    while (*s) {
+      if ('/' == *s) {
+        *s = '_';
+      }
+      s++;
+    }
+    // update topic is "$aws/things/<topic>/shadow/update"
+    snprintf_P(romram, sizeof(romram), PSTR("$aws/things/%s/shadow/update"), topic2);
+
+    // copy buffer
+    char *mqtt_save = (char*) malloc(strlen(mqtt_data)+1);
+    if (!mqtt_save) { return; }    // abort
+    strcpy(mqtt_save, mqtt_data);
+    snprintf_P(mqtt_data, sizeof(mqtt_data), PSTR("{\"state\":{\"reported\":%s}}"), mqtt_save);
+    free(mqtt_save);
+
+    bool result = MqttClient.publish(romram, mqtt_data, false);
+    AddLog_P2(LOG_LEVEL_DEBUG, PSTR(D_LOG_MQTT "Updated shadow: %s"), romram);
+    yield();  // #3313
+  }
+#endif // USE_MQTT_AWS_IOT
 }
 
 void MqttPublishPrefixTopic_P(uint32_t prefix, const char* subtopic)
@@ -667,11 +697,6 @@ void MqttCheck(void)
     if (!MqttIsConnected()) {
       global_state.mqtt_down = 1;
       if (!Mqtt.retry_counter) {
-#ifdef USE_DISCOVERY
-#ifdef MQTT_HOST_DISCOVERY
-        if (!strlen(SettingsText(SET_MQTT_HOST)) && !Wifi.mdns_begun) { return; }
-#endif  // MQTT_HOST_DISCOVERY
-#endif  // USE_DISCOVERY
         MqttReconnect();
       } else {
         Mqtt.retry_counter--;
@@ -681,8 +706,20 @@ void MqttCheck(void)
     }
   } else {
     global_state.mqtt_down = 0;
-    if (Mqtt.initial_connection_state) MqttReconnect();
+    if (Mqtt.initial_connection_state) {
+      MqttReconnect();
+    }
   }
+}
+
+bool KeyTopicActive(uint32_t key)
+{
+  // key = 0 - Button topic
+  // key = 1 - Switch topic
+  key &= 1;
+  char key_topic[TOPSZ];
+  Format(key_topic, SettingsText(SET_MQTT_BUTTON_TOPIC + key), sizeof(key_topic));
+  return ((strlen(key_topic) != 0) && strcmp(key_topic, "0"));
 }
 
 /*********************************************************************************************\
@@ -825,13 +862,13 @@ void CmndPrefix(void)
 void CmndPublish(void)
 {
   if (XdrvMailbox.data_len > 0) {
-    char *mqtt_part = strtok(XdrvMailbox.data, " ");
+    char *payload_part;
+    char *mqtt_part = strtok_r(XdrvMailbox.data, " ", &payload_part);
     if (mqtt_part) {
       char stemp1[TOPSZ];
       strlcpy(stemp1, mqtt_part, sizeof(stemp1));
-      mqtt_part = strtok(nullptr, " ");
-      if (mqtt_part) {
-        strlcpy(mqtt_data, mqtt_part, sizeof(mqtt_data));
+      if ((payload_part != nullptr) && strlen(payload_part)) {
+        strlcpy(mqtt_data, payload_part, sizeof(mqtt_data));
       } else {
         mqtt_data[0] = '\0';
       }
@@ -844,13 +881,26 @@ void CmndPublish(void)
 
 void CmndGroupTopic(void)
 {
+#ifdef USE_DEVICE_GROUPS
+  if ((XdrvMailbox.index > 0) && (XdrvMailbox.index <= 4)) {
+    uint32_t settings_text_index = (XdrvMailbox.index <= 1 ? SET_MQTT_GRP_TOPIC : SET_MQTT_GRP_TOPIC2 + XdrvMailbox.index - 2);
+#endif  // USE_DEVICE_GROUPS
   if (XdrvMailbox.data_len > 0) {
     MakeValidMqtt(0, XdrvMailbox.data);
     if (!strcmp(XdrvMailbox.data, mqtt_client)) { SetShortcutDefault(); }
+#ifdef USE_DEVICE_GROUPS
+    SettingsUpdateText(settings_text_index, (SC_DEFAULT == Shortcut()) ? MQTT_GRPTOPIC : XdrvMailbox.data);
+#else  // USE_DEVICE_GROUPS
     SettingsUpdateText(SET_MQTT_GRP_TOPIC, (SC_DEFAULT == Shortcut()) ? MQTT_GRPTOPIC : XdrvMailbox.data);
+#endif  // USE_DEVICE_GROUPS
     restart_flag = 2;
   }
+#ifdef USE_DEVICE_GROUPS
+    ResponseCmndChar(SettingsText(settings_text_index));
+  }
+#else  // USE_DEVICE_GROUPS
   ResponseCmndChar(SettingsText(SET_MQTT_GRP_TOPIC));
+#endif  // USE_DEVICE_GROUPS
 }
 
 void CmndTopic(void)
@@ -1121,8 +1171,12 @@ void CmndTlsDump(void) {
   uint32_t start = (uint32_t)tls_spi_start + tls_block_offset;
   uint32_t end   = start + tls_block_len -1;
   for (uint32_t pos = start; pos < end; pos += 0x10) {
-      uint32_t* values = (uint32_t*)(pos);
-      Serial.printf_P(PSTR("%08x:  %08x %08x %08x %08x\n"), pos, bswap32(values[0]), bswap32(values[1]), bswap32(values[2]), bswap32(values[3]));
+    uint32_t* values = (uint32_t*)(pos);
+#ifdef ARDUINO_ESP8266_RELEASE_2_3_0
+    Serial.printf("%08x:  %08x %08x %08x %08x\n", pos, bswap32(values[0]), bswap32(values[1]), bswap32(values[2]), bswap32(values[3]));
+#else
+    Serial.printf_P(PSTR("%08x:  %08x %08x %08x %08x\n"), pos, bswap32(values[0]), bswap32(values[1]), bswap32(values[2]), bswap32(values[3]));
+#endif
   }
 }
 #endif  // DEBUG_DUMP_TLS
