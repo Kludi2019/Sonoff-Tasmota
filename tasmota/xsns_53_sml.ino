@@ -939,8 +939,9 @@ double dval;
   // scan for values
   // check status
 #ifdef ED300L
-  unsigned char *cpx=cp-4;
-  if (*cp==0x64 && *cpx==0x01 && *(cpx+1)==0x08 && *(cpx+2)==0) {
+  unsigned char *cpx=cp-5;
+  // decode OBIS 0180 amd extract direction info
+  if (*cp==0x64 && *cpx==0 && *(cpx+1)==0x01 && *(cpx+2)==0x08 && *(cpx+3)==0) {
       sml_status[g_mindex]=*(cp+3);
   }
 #endif
@@ -953,6 +954,17 @@ double dval;
   // check scaler
   cp=skip_sml(cp,&result);
   scaler=result;
+
+#ifdef ED300L
+// decode current power OBIS 00 0F 07 00
+if (*cpx==0x00 && *(cpx+1)==0x0f && *(cpx+2)==0x07 && *(cpx+3)==0) {
+    if (sml_status[g_mindex]&0x20) {
+      // and invert sign on solar feed 
+      scaler*=-1;
+    }
+}
+#endif
+
   // get value
   type=*cp&0x70;
   len=*cp&0x0f;
@@ -2079,7 +2091,11 @@ uint32_t SML_SetBaud(uint32_t meter, uint32_t br) {
 uint32_t SML_Status(uint32_t meter) {
   if (meter<1 || meter>meters_used) return 0;
   meter--;
+#ifdef ED300L
   return sml_status[meter];
+#else
+  return 0;
+#endif
 }
 
 
