@@ -8,6 +8,8 @@
 .clang_complete
 .gcc-flags.json
 .cache
+build_output
+
 tasmota/user_config_override.h
 build
 firmware.map
