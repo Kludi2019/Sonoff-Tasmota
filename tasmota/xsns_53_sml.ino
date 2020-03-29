@@ -955,16 +955,6 @@ double dval;
   cp=skip_sml(cp,&result);
   scaler=result;
 
-#ifdef ED300L
-// decode current power OBIS 00 0F 07 00
-if (*cpx==0x00 && *(cpx+1)==0x0f && *(cpx+2)==0x07 && *(cpx+3)==0) {
-    if (sml_status[g_mindex]&0x20) {
-      // and invert sign on solar feed 
-      scaler*=-1;
-    }
-}
-#endif
-
   // get value
   type=*cp&0x70;
   len=*cp&0x0f;
@@ -1057,6 +1047,15 @@ if (*cpx==0x00 && *(cpx+1)==0x0f && *(cpx+2)==0x07 && *(cpx+3)==0) {
     } else if (scaler==3) {
       dval*=1000;
     }
+  #ifdef ED300L
+    // decode current power OBIS 00 0F 07 00
+    if (*cpx==0x00 && *(cpx+1)==0x0f && *(cpx+2)==0x07 && *(cpx+3)==0) {
+        if (sml_status[g_mindex]&0x20) {
+          // and invert sign on solar feed
+          dval*=-1;
+        }
+    }
+  #endif
     return dval;
 }
 
