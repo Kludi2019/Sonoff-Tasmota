@@ -3610,6 +3610,8 @@ void ScriptSaveSettings(void) {
 
 #if defined(USE_SCRIPT_HUE) && defined(USE_WEBSERVER) && defined(USE_EMULATION) && defined(USE_EMULATION_HUE) && defined(USE_LIGHT)
 
+uint32_t EncodeLightId(uint8_t);
+uint32_t DecodeLightId(uint32_t);
 
 #define HUE_DEV_MVNUM 5
 #define HUE_DEV_NSIZE 16
