@@ -388,6 +388,7 @@ int32_t Z_BindRsp(int32_t res, const class SBuffer &buf) {
 
   return -1;
 }
+
 //
 // Handle Unbind Rsp incoming message
 //
@@ -409,6 +410,72 @@ int32_t Z_UnbindRsp(int32_t res, const class SBuffer &buf) {
                     "}}"), nwkAddr, status, getZigbeeStatusMessage(status).c_str());
   }
   MqttPublishPrefixTopic_P(RESULT_OR_TELE, PSTR(D_JSON_ZIGBEEZCL_RECEIVED));
+  XdrvRulesProcess();
+
+  return -1;
+}
+//
+// Handle MgMt Bind Rsp incoming message
+//
+int32_t Z_MgmtBindRsp(int32_t res, const class SBuffer &buf) {
+  uint16_t    shortaddr   = buf.get16(2);
+  uint8_t     status      = buf.get8(4);
+  uint8_t     bind_total  = buf.get8(5);
+  uint8_t     bind_start  = buf.get8(6);
+  uint8_t     bind_len    = buf.get8(7);
+
+  const char * friendlyName = zigbee_devices.getFriendlyName(shortaddr);
+
+  Response_P(PSTR("{\"" D_JSON_ZIGBEE_BIND_STATE "\":{\"" D_JSON_ZIGBEE_DEVICE "\":\"0x%04X\""), shortaddr);
+  if (friendlyName) {
+    ResponseAppend_P(PSTR(",\"" D_JSON_ZIGBEE_NAME "\":\"%s\""), friendlyName);
+  }
+  ResponseAppend_P(PSTR(",\"" D_JSON_ZIGBEE_STATUS "\":%d"
+                        ",\"" D_JSON_ZIGBEE_STATUS_MSG "\":\"%s\""
+                        ",\"BindingsTotal\":%d"
+                        //",\"BindingsStart\":%d"
+                        ",\"Bindings\":["
+                        ), status, getZigbeeStatusMessage(status).c_str(), bind_total);
+
+  uint32_t idx = 8;
+  for (uint32_t i = 0; i < bind_len; i++) {
+    if (idx + 14 > buf.len()) { break; }   // overflow, frame size is between 14 and 21
+
+    //uint64_t    srcaddr   = buf.get16(idx);     // unused
+    uint8_t     srcep     = buf.get8(idx + 8);
+    uint8_t     cluster   = buf.get16(idx + 9);
+    uint8_t     addrmode  = buf.get8(idx + 11);
+    uint16_t    group     = 0x0000;
+    uint64_t    dstaddr   = 0;
+    uint8_t     dstep     = 0x00;
+    if (Z_Addr_Group == addrmode) {               // Group address mode
+      group = buf.get16(idx + 12);
+      idx += 14;
+    } else if (Z_Addr_IEEEAddress == addrmode) {  // IEEE address mode
+      dstaddr = buf.get64(idx + 12);
+      dstep = buf.get8(idx + 20);
+      idx += 21;
+    } else {
+      //AddLog_P2(LOG_LEVEL_INFO, PSTR("Z_MgmtBindRsp unknwon address mode %d"), addrmode);
+      break;                                      // abort for any other value since we don't know the length of the field
+    }
+
+    if (i > 0) {
+      ResponseAppend_P(PSTR(","));
+    }
+    ResponseAppend_P(PSTR("{\"Cluster\":\"0x%04X\",\"Endpoint\":%d,"), cluster, srcep);
+    if (Z_Addr_Group == addrmode) {               // Group address mode
+      ResponseAppend_P(PSTR("\"ToGroup\":%d}"), group);
+    } else if (Z_Addr_IEEEAddress == addrmode) {  // IEEE address mode
+      char hex[20];
+      Uint64toHex(dstaddr, hex, 64);
+      ResponseAppend_P(PSTR("\"ToDevice\":\"0x%s\",\"ToEndpoint\":%d}"), hex, dstep);
+    }
+  }
+
+  ResponseAppend_P(PSTR("]}}"));
+
+  MqttPublishPrefixTopic_P(RESULT_OR_TELE, PSTR(D_JSON_ZIGBEE_BIND_STATE));
   XdrvRulesProcess();
 
   return -1;
@@ -459,10 +526,10 @@ void Z_SendAFInfoRequest(uint16_t shortaddr) {
 
 // Aqara Occupancy behavior: the Aqara device only sends Occupancy: true events every 60 seconds.
 // Here we add a timer so if we don't receive a Occupancy event for 90 seconds, we send Occupancy:false
-void Z_AqaraOccupancy(uint16_t shortaddr, uint16_t cluster, uint8_t endpoint, const JsonObject *json) {
+void Z_AqaraOccupancy(uint16_t shortaddr, uint16_t cluster, uint8_t endpoint, const JsonObject &json) {
   static const uint32_t OCCUPANCY_TIMEOUT = 90 * 1000;  // 90 s
   // Read OCCUPANCY value if any
-  const JsonVariant &val_endpoint = getCaseInsensitive(*json, PSTR(OCCUPANCY));
+  const JsonVariant &val_endpoint = getCaseInsensitive(json, PSTR(OCCUPANCY));
   if (nullptr != &val_endpoint) {
     uint32_t occupancy = strToUInt(val_endpoint);
 
@@ -477,8 +544,6 @@ void Z_AqaraOccupancy(uint16_t shortaddr, uint16_t cluster, uint8_t endpoint, co
 int32_t Z_PublishAttributes(uint16_t shortaddr, uint16_t groupaddr, uint16_t cluster, uint8_t endpoint, uint32_t value) {
   const JsonObject *json = zigbee_devices.jsonGet(shortaddr);
   if (json == nullptr) { return 0; }                 // don't crash if not found
-  // Post-provess for Aqara Presence Senson
-  Z_AqaraOccupancy(shortaddr, cluster, endpoint, json);
 
   zigbee_devices.jsonPublishFlush(shortaddr);
   return 1;
@@ -546,6 +611,9 @@ int32_t Z_ReceiveAfIncomingMessage(int32_t res, const class SBuffer &buf) {
     zigbee_devices.resetTimersForDevice(srcaddr, 0 /* groupaddr */, Z_CAT_REACHABILITY);    // remove any reachability timer already there
     zigbee_devices.setReachable(srcaddr, true);     // mark device as reachable
 
+    // Post-provess for Aqara Presence Senson
+    Z_AqaraOccupancy(srcaddr, clusterid, srcendpoint, json);
+
     if (defer_attributes) {
       // Prepare for publish
       if (zigbee_devices.jsonIsConflict(srcaddr, json)) {
@@ -579,6 +647,7 @@ ZBM(AREQ_ZDO_SIMPLEDESCRSP, Z_AREQ | Z_ZDO, ZDO_SIMPLE_DESC_RSP)            // 4
 ZBM(AREQ_ZDO_IEEE_ADDR_RSP, Z_AREQ | Z_ZDO, ZDO_IEEE_ADDR_RSP)              // 4581
 ZBM(AREQ_ZDO_BIND_RSP, Z_AREQ | Z_ZDO, ZDO_BIND_RSP)                        // 45A1
 ZBM(AREQ_ZDO_UNBIND_RSP, Z_AREQ | Z_ZDO, ZDO_UNBIND_RSP)                    // 45A2
+ZBM(AREQ_ZDO_MGMT_BIND_RSP, Z_AREQ | Z_ZDO, ZDO_MGMT_BIND_RSP)              // 45B3
 
 // Dispatcher callbacks table
 const Z_Dispatcher Z_DispatchTable[] PROGMEM = {
@@ -592,6 +661,7 @@ const Z_Dispatcher Z_DispatchTable[] PROGMEM = {
   { AREQ_ZDO_IEEE_ADDR_RSP,       &Z_ReceiveIEEEAddr },
   { AREQ_ZDO_BIND_RSP,            &Z_BindRsp },
   { AREQ_ZDO_UNBIND_RSP,          &Z_UnbindRsp },
+  { AREQ_ZDO_MGMT_BIND_RSP,       &Z_MgmtBindRsp },
 };
 
 /*********************************************************************************************\
@@ -643,6 +713,7 @@ void Z_Query_Bulb(uint16_t shortaddr, uint32_t &wait_ms) {
       zigbee_devices.setTimer(shortaddr, 0 /* groupaddr */, wait_ms, 0x0300, endpoint, Z_CAT_NONE, 0 /* value */, &Z_ReadAttrCallback);
       wait_ms += inter_message_ms;
       zigbee_devices.setTimer(shortaddr, 0, wait_ms + Z_CAT_REACHABILITY_TIMEOUT, 0, endpoint, Z_CAT_REACHABILITY, 0 /* value */, &Z_Unreachable);
+      wait_ms += 1000;              // wait 1 second between devices
     }
   }
 }
