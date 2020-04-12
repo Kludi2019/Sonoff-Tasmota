@@ -548,8 +548,12 @@ void GetFeatures(void)
 #ifdef USE_DISPLAY_SEVENSEG
   feature6 |= 0x00000020;  // xdsp_11_sevenseg.ino
 #endif
-//  feature6 |= 0x00000040;
-//  feature6 |= 0x00000080;
+#ifdef USE_AS3935
+  feature6 |= 0x00000040;  // xsns_67_as3935.ino
+#endif
+#ifdef USE_PING
+  feature6 |= 0x00000080;  // xdrv_38_ping.ino
+#endif
 
 //  feature6 |= 0x00000100;
 //  feature6 |= 0x00000200;

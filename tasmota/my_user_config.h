@@ -503,6 +503,7 @@
 //    #define WEMOS_MOTOR_V1_FREQ  1000            // Default frequency
 //  #define USE_HDC1080                            // [I2cDriver45] Enable HDC1080 temperature/humidity sensor (I2C address 0x40) (+1k5 code)
 //  #define USE_IAQ                                // [I2cDriver46] Enable iAQ-core air quality sensor (I2C address 0x5a) (+0k6 code)
+//  #define USE_AS3935                             // [I2cDriver48] Enable AS3935 Franklin Lightning Sensor (I2C address 0x03) (+5k4 code)
 
 //  #define USE_DISPLAY                            // Add I2C Display Support (+2k code)
     #define USE_DISPLAY_MODES1TO5                // Enable display mode 1 to 5 in addition to mode 0
@@ -626,7 +627,6 @@
   #define USE_ZIGBEE_CHANNEL  11                  // Zigbee Channel (11-26)
   #define USE_ZIGBEE_PRECFGKEY_L 0x0F0D0B0907050301L  // note: changing requires to re-pair all devices
   #define USE_ZIGBEE_PRECFGKEY_H 0x0D0C0A0806040200L  // note: changing requires to re-pair all devices
-  #define USE_ZIGBEE_PERMIT_JOIN false           // don't allow joining by default
   #define USE_ZIGBEE_COALESCE_ATTR_TIMER 350     // timer to coalesce attribute values (in ms)
 
 // -- Other sensors/drivers -----------------------
