@@ -2033,7 +2033,7 @@ char *getop(char *lp, uint8_t *operand) {
 }
 
 
-#if defined ESP8266
+#ifdef ESP8266
 #if defined(ARDUINO_ESP8266_RELEASE_2_3_0) || defined(ARDUINO_ESP8266_RELEASE_2_4_0) || defined(ARDUINO_ESP8266_RELEASE_2_4_1)
 // All version before core 2.4.2
 // https://github.com/esp8266/Arduino/issues/2557
@@ -2058,7 +2058,8 @@ uint16_t GetStack(void) {
 #endif
 #else
 uint16_t GetStack(void) {
-  return 0;
+  register uint8_t *sp asm("a1");
+  return (sp - pxTaskGetStackStart(NULL));
 }
 #endif
 
