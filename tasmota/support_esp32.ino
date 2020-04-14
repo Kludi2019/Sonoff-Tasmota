@@ -54,7 +54,6 @@ void SettingsLoad(const char *sNvsName, const char *sName, void *pSettings, unsi
   size = nSettingsLen;
   nvs_get_blob(handle, sName, pSettings, &size);
   nvs_close(handle);
-
   interrupts();
 }
 
@@ -63,11 +62,10 @@ void SettingsSave(const char *sNvsName, const char *sName, const void *pSettings
   nvs_handle handle;
   noInterrupts();
   nvs_open(sNvsName, NVS_READWRITE, &handle);
-  esp_err_t err=nvs_set_blob(handle, sName, pSettings, nSettingsLen);
+  nvs_set_blob(handle, sName, pSettings, nSettingsLen);
   nvs_commit(handle);
   nvs_close(handle);
   interrupts();
-  //Serial.printf("err=%d\n",err );
 }
 
 void ESP32_flashRead(uint32_t offset, uint32_t *data, size_t size)

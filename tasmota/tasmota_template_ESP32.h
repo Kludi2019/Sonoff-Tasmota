@@ -42,6 +42,7 @@
 #undef USE_DEEPSLEEP
 #undef USE_MY92X1
 #undef USE_TUYA_MCU
+
 #undef USE_PS_16_DZ
 
 /********************************************************************************************/
