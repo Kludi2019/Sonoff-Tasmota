@@ -3601,6 +3601,7 @@ void ScriptSaveSettings(void) {
 #define ESP32_SCRIPT_SIZE 8192
 #endif
 
+/*
 #if defined(ESP32) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
     if (glob_script_mem.flags&1) {
       SettingsSave("setup", "script",glob_script_mem.script_ram,ESP32_SCRIPT_SIZE);
@@ -3608,7 +3609,7 @@ void ScriptSaveSettings(void) {
       SettingsLoad("setup", "script",glob_script_mem.script_ram,ESP32_SCRIPT_SIZE);
     }
 #endif
-
+*/
   }
 
   if (glob_script_mem.script_mem) {
@@ -4902,6 +4903,7 @@ bool Xdrv10(uint8_t function)
       }
 #endif
 
+/*
 #if defined(ESP32) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
     char *script;
     script=(char*)calloc(ESP32_SCRIPT_SIZE+4,1);
@@ -4915,7 +4917,7 @@ bool Xdrv10(uint8_t function)
     glob_script_mem.script_pram_size=MAX_SCRIPT_SIZE;
     glob_script_mem.flags=1;
 #endif
-
+*/
       // assure permanent memory is 4 byte aligned
       { uint32_t ptr=(uint32_t)glob_script_mem.script_pram;
       ptr&=0xfffffffc;
