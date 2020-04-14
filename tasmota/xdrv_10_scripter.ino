@@ -69,7 +69,7 @@ uint32_t DecodeLightId(uint32_t hue_id);
 
 #include "FS.h"
 #include "SPIFFS.h"
-void SaveFile(char *name,const uint8_t *buf,uint32_t len) {
+void SaveFile(const char *name,const uint8_t *buf,uint32_t len) {
   File file = SPIFFS.open(name, FILE_WRITE);
   if (!file) return;
   file.write(buf, len);
@@ -78,7 +78,7 @@ void SaveFile(char *name,const uint8_t *buf,uint32_t len) {
 
 #define FORMAT_SPIFFS_IF_FAILED true
 
-void LoadFile(char *name,uint8_t *buf,uint32_t len) {
+void LoadFile(const char *name,uint8_t *buf,uint32_t len) {
 
   if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
       return;
@@ -4854,7 +4854,7 @@ bool Xdrv10(uint8_t function)
 
   switch (function) {
     case FUNC_PRE_INIT:
-      //webcam_setup();
+      webcam_setup();
       // set defaults to rules memory
       glob_script_mem.script_ram=Settings.rules[0];
       glob_script_mem.script_size=MAX_SCRIPT_SIZE;

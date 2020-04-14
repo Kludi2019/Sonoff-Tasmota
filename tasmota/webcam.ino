@@ -1,4 +1,4 @@
-/*
+
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -18,7 +18,8 @@
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-//#include "esp_camera.h"
+#include "esp_camera.h"
+
 //#include <WiFi.h>
 //#include "esp_http_server.h"
 //#include "esp_timer.h"
@@ -29,11 +30,8 @@
 //#include "fr_forward.h"
 
 
-void webcam_setup()  {
 
-}
-
-
+/*
 httpd_handle_t stream_httpd = NULL;
 
 static mtmn_config_t mtmn_config = {0};
@@ -194,6 +192,8 @@ static esp_err_t stream_handler(httpd_req_t *req){
     return res;
 }
 
+*/
+
 void webcam_setup() {
 camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -217,12 +217,6 @@ camera_config_t config;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
 
-  httpd_uri_t stream_uri = {
-        .uri       = "/stream",
-        .method    = HTTP_GET,
-        .handler   = stream_handler,
-        .user_ctx  = NULL
-    };
 
   // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
   //                      for larger pre-allocated frame buffer.
@@ -252,6 +246,14 @@ camera_config_t config;
   // drop down frame size for higher initial frame rate
   s->set_framesize(s, FRAMESIZE_QVGA);
 
+/*
+  httpd_uri_t stream_uri = {
+        .uri       = "/stream",
+        .method    = HTTP_GET,
+        .handler   = stream_handler,
+        .user_ctx  = NULL
+  };
+
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.server_port += 1;
   config.ctrl_port += 1;
@@ -259,9 +261,7 @@ camera_config_t config;
   if (httpd_start(&stream_httpd, &config) == ESP_OK) {
     httpd_register_uri_handler(stream_httpd, &stream_uri);
   }
-
+*/
   //startCameraServer();
 
 }
-
-*/
