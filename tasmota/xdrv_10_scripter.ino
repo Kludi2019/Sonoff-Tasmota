@@ -65,6 +65,31 @@ keywords if then else endif, or, and are better readable for beginners (others m
 uint32_t EncodeLightId(uint8_t relay_id);
 uint32_t DecodeLightId(uint32_t hue_id);
 
+#ifdef ESP32
+
+#include "FS.h"
+#include "SPIFFS.h"
+void SaveFile(char *name,const uint8_t *buf,uint32_t len) {
+  File file = SPIFFS.open(name, FILE_WRITE);
+  if (!file) return;
+  file.write(buf, len);
+  file.close();
+}
+
+#define FORMAT_SPIFFS_IF_FAILED true
+
+void LoadFile(char *name,uint8_t *buf,uint32_t len) {
+
+  if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
+      return;
+  }
+  File file = SPIFFS.open(name);
+  if (!file) return;
+  file.read(buf, len);
+  file.close();
+}
+#endif
+
 // offsets epoch readings by 1.1.2019 00:00:00 to fit into float with second resolution
 #define EPOCH_OFFSET 1546300800
 
@@ -3601,15 +3626,11 @@ void ScriptSaveSettings(void) {
 #define ESP32_SCRIPT_SIZE 8192
 #endif
 
-/*
 #if defined(ESP32) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
     if (glob_script_mem.flags&1) {
-      SettingsSave("setup", "script",glob_script_mem.script_ram,ESP32_SCRIPT_SIZE);
-      glob_script_mem.script_ram[0]=0;
-      SettingsLoad("setup", "script",glob_script_mem.script_ram,ESP32_SCRIPT_SIZE);
+      SaveFile("/script.txt",(uint8_t*)glob_script_mem.script_ram,ESP32_SCRIPT_SIZE);
     }
 #endif
-*/
   }
 
   if (glob_script_mem.script_mem) {
@@ -4903,12 +4924,12 @@ bool Xdrv10(uint8_t function)
       }
 #endif
 
-/*
+
 #if defined(ESP32) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
     char *script;
     script=(char*)calloc(ESP32_SCRIPT_SIZE+4,1);
     if (!script) break;
-    SettingsLoad("setup", "script",script,ESP32_SCRIPT_SIZE);
+    LoadFile("/script.txt",(uint8_t*)script,ESP32_SCRIPT_SIZE);
     glob_script_mem.script_ram=script;
     glob_script_mem.script_size=ESP32_SCRIPT_SIZE;
     script[ESP32_SCRIPT_SIZE-1]=0;
@@ -4917,7 +4938,7 @@ bool Xdrv10(uint8_t function)
     glob_script_mem.script_pram_size=MAX_SCRIPT_SIZE;
     glob_script_mem.flags=1;
 #endif
-*/
+
       // assure permanent memory is 4 byte aligned
       { uint32_t ptr=(uint32_t)glob_script_mem.script_pram;
       ptr&=0xfffffffc;
