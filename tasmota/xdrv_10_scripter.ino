@@ -77,11 +77,15 @@ void SaveFile(const char *name,const uint8_t *buf,uint32_t len) {
 }
 
 #define FORMAT_SPIFFS_IF_FAILED true
+uint8_t spiffs_mounted=0;
 
 void LoadFile(const char *name,uint8_t *buf,uint32_t len) {
-
-  if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
+  if (!spiffs_mounted) {
+    if(!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)){
+          //Serial.println("SPIFFS Mount Failed");
       return;
+    }
+    spiffs_mounted=1;
   }
   File file = SPIFFS.open(name);
   if (!file) return;
