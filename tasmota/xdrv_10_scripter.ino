@@ -65,7 +65,7 @@ keywords if then else endif, or, and are better readable for beginners (others m
 uint32_t EncodeLightId(uint8_t relay_id);
 uint32_t DecodeLightId(uint32_t hue_id);
 
-#ifdef ESP32
+#if defined(ESP32) && defined(ESP32_SCRIPT_SIZE) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
 
 #include "FS.h"
 #include "SPIFFS.h"
@@ -3626,11 +3626,7 @@ void ScriptSaveSettings(void) {
     }
 #endif
 
-#ifndef ESP32_SCRIPT_SIZE
-#define ESP32_SCRIPT_SIZE 8192
-#endif
-
-#if defined(ESP32) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
+#if defined(ESP32) && defined(ESP32_SCRIPT_SIZE) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
     if (glob_script_mem.flags&1) {
       SaveFile("/script.txt",(uint8_t*)glob_script_mem.script_ram,ESP32_SCRIPT_SIZE);
     }
@@ -4929,7 +4925,7 @@ bool Xdrv10(uint8_t function)
 #endif
 
 
-#if defined(ESP32) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
+#if defined(ESP32) && defined(ESP32_SCRIPT_SIZE) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
     char *script;
     script=(char*)calloc(ESP32_SCRIPT_SIZE+4,1);
     if (!script) break;
