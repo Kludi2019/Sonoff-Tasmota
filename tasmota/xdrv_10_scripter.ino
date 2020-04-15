@@ -4854,7 +4854,11 @@ bool Xdrv10(uint8_t function)
 
   switch (function) {
     case FUNC_PRE_INIT:
-      webcam_setup();
+#ifdef USE_WEBCAM
+      if (Settings.module==ESP32_CAM_AITHINKER) {
+        webcam_setup();
+      }
+#endif
       // set defaults to rules memory
       glob_script_mem.script_ram=Settings.rules[0];
       glob_script_mem.script_size=MAX_SCRIPT_SIZE;
