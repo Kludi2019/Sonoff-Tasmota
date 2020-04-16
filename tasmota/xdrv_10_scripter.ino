@@ -1166,8 +1166,8 @@ chknext:
           goto exit;
         }
         break;
-#ifdef USE_SCRIPT_FATFS
       case 'f':
+#ifdef USE_SCRIPT_FATFS
         if (!strncmp(vname,"fo(",3)) {
           lp+=3;
           char str[SCRIPT_MAXSSIZE];
@@ -1370,7 +1370,7 @@ chknext:
           len=0;
           goto exit;
         }
-#endif
+#endif // USE_SCRIPT_FATFS_EXT
         if (!strncmp(vname,"fl1(",4) || !strncmp(vname,"fl2(",4) )  {
           uint8_t lknum=*(lp+2)&3;
           lp+=4;
@@ -1388,9 +1388,16 @@ chknext:
           //card_init();
           goto exit;
         }
-        break;
-
 #endif //USE_SCRIPT_FATFS
+        if (!strncmp(vname,"freq",4)) {
+#ifdef ESP32
+          fvar=getCpuFrequencyMhz();
+#else
+          fvar=ESP.getCpuFreqMHz();
+#endif
+          goto exit;
+        }
+        break;
       case 'g':
         if (!strncmp(vname,"gtmp",4)) {
           fvar=global_temperature;
