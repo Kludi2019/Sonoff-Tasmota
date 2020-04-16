@@ -1892,6 +1892,33 @@ chknext:
         break;
 
       case 'w':
+#if defined(ESP32) && defined(USE_WEBCAM)
+        if (!strncmp(vname,"wc(",3)) {
+          lp+=3;
+          float fvar1;
+          lp=GetNumericResult(lp,OPER_EQU,&fvar1,0);
+          SCRIPT_SKIP_SPACES
+          switch ((uint32)fvar1) {
+            case 0:
+              fvar=webcam_setup();
+              break;
+            case 1:
+              fvar=wc_get_frame();
+              break;
+            case 2:
+              { float fvar2;
+                lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
+                fvar=wc_set_framesize(fvar2);
+              }
+              break;
+            default:
+              fvar=0;
+          }
+          lp++;
+          len=0;
+          goto exit;
+        }
+#endif
         if (!strncmp(vname,"wday",4)) {
           fvar=RtcTime.day_of_week;
           goto exit;
@@ -2714,7 +2741,11 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
               SCRIPT_SKIP_SPACES
               lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
               int8_t mode=fvar;
-              pinMode(pinnr,mode&3);
+              uint8_t pm=0;
+              if (mode==0) pm=INPUT;
+              if (mode==1) pm=OUTPUT;
+              if (mode==2) pm=INPUT_PULLUP;
+              pinMode(pinnr,pm);
               goto next_line;
             } else if (!strncmp(lp,"spin(",5)) {
               lp+=5;
@@ -4854,14 +4885,8 @@ bool Xdrv10(uint8_t function)
 
   switch (function) {
     case FUNC_PRE_INIT:
-    /*
-#ifdef USE_WEBCAM
-      if (Settings.module==ESP32_CAM_AITHINKER) {
-        webcam_setup();
-      }
-#endif
-*/
       // set defaults to rules memory
+      //bitWrite(Settings.rule_enabled,0,0);
       glob_script_mem.script_ram=Settings.rules[0];
       glob_script_mem.script_size=MAX_SCRIPT_SIZE;
       glob_script_mem.flags=0;

@@ -10,8 +10,6 @@
 #include "fd_forward.h"
 #include "fr_forward.h"
 
-
-
 /*
 httpd_handle_t stream_httpd = NULL;
 
@@ -176,6 +174,8 @@ static esp_err_t stream_handler(httpd_req_t *req){
 */
 
 /*
+void startCameraServer(void) {
+
   httpd_uri_t stream_uri = {
         .uri       = "/stream",
         .method    = HTTP_GET,
@@ -190,6 +190,7 @@ static esp_err_t stream_handler(httpd_req_t *req){
   if (httpd_start(&stream_httpd, &config) == ESP_OK) {
     httpd_register_uri_handler(stream_httpd, &stream_uri);
   }
+}
 */
   //startCameraServer();
 #endif
