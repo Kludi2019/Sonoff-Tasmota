@@ -1910,13 +1910,22 @@ chknext:
               fvar=webcam_setup();
               break;
             case 1:
-              fvar=wc_get_frame();
+              { float fvar2;
+                lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
+                fvar=wc_get_frame(fvar2);
+              }
               break;
             case 2:
               { float fvar2;
                 lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
                 fvar=wc_set_framesize(fvar2);
               }
+              break;
+            case 3:
+              fvar=wc_get_width();
+              break;
+            case 4:
+              fvar=wc_get_height();
               break;
             default:
               fvar=0;
@@ -3546,6 +3555,31 @@ void HandleScriptTextareaConfiguration(void) {
   }
 }
 
+#if defined(ESP32) && defined(USE_WEBCAM)
+void HandleImage(void) {
+  if (!HttpCheckPriviledgedAccess()) { return; }
+
+  uint32_t bnum = Webserver->arg(F("p")).toInt();
+  if (bnum<1 || bnum>MAX_PICSTORE) bnum=1;
+  bnum--;
+  WiFiClient client = Webserver->client();
+  String response = "HTTP/1.1 200 OK\r\n";
+  response += "Content-disposition: inline; filename=capture.jpg\r\n";
+  response += "Content-type: image/jpeg\r\n\r\n";
+  Webserver->sendContent(response);
+
+  if (!picstore[bnum].len) {
+    AddLog_P2(LOG_LEVEL_INFO, PSTR("no image #: %d"), bnum);
+    return;
+  }
+
+  client.write((char *)picstore[bnum].buff, picstore[bnum].len);
+
+  AddLog_P2(LOG_LEVEL_INFO, PSTR("sending image #: %d"), bnum+1);
+
+}
+#endif
+
 void HandleScriptConfiguration(void) {
 
     if (!HttpCheckPriviledgedAccess()) { return; }
@@ -5022,6 +5056,9 @@ bool Xdrv10(uint8_t function)
     case FUNC_WEB_ADD_HANDLER:
       Webserver->on("/" WEB_HANDLE_SCRIPT, HandleScriptConfiguration);
       Webserver->on("/ta",HTTP_POST, HandleScriptTextareaConfiguration);
+#if defined(ESP32) && defined(USE_WEBCAM)
+      Webserver->on("/wc.jpg", HandleImage);
+#endif
 
 #ifdef USE_SCRIPT_FATFS
       Webserver->on("/u3", HTTP_POST,[]() { Webserver->sendHeader("Location","/u3");Webserver->send(303);},script_upload);
