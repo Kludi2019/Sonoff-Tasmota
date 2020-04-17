@@ -16,7 +16,6 @@ uint8_t wc_up;
 bool psram;
 
 uint32_t webcam_setup(void) {
-  sensor_t * wc_s;
 
   if (wc_up) {
     if (psram) return 2;
