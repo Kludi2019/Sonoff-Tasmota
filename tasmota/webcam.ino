@@ -10,12 +10,14 @@
 #include "OV2640.h"
 #include "CRtspSession.h"
 
-sensor_t * wc_s;
+
 camera_fb_t *wc_fb;
 uint8_t wc_up;
 bool psram;
 
 uint32_t webcam_setup(void) {
+  sensor_t * wc_s;
+
   if (wc_up) {
     if (psram) return 2;
     return 1;
@@ -57,7 +59,7 @@ camera_config_t config;
     config.fb_count = 2;
     AddLog_P(LOG_LEVEL_INFO,"PSRAM found!");
   } else {
-    config.frame_size = FRAMESIZE_QQVGA;
+    config.frame_size = FRAMESIZE_CIF;
     config.jpeg_quality = 12;
     config.fb_count = 1;
     AddLog_P(LOG_LEVEL_INFO,"PSRAM not found!");
@@ -79,7 +81,7 @@ camera_config_t config;
     wc_s->set_saturation(wc_s, -2); // lower the saturation
   }
   // drop down frame size for higher initial frame rate
-  wc_s->set_framesize(wc_s, FRAMESIZE_QQVGA);
+  wc_s->set_framesize(wc_s, FRAMESIZE_CIF);
 
   AddLog_P(LOG_LEVEL_INFO,"Camera successfully initialized!");
 
@@ -90,7 +92,8 @@ camera_config_t config;
 }
 
 uint32_t wc_set_framesize(uint32_t size) {
-  return wc_s->set_framesize(wc_s,(framesize_t)size);
+  sensor_t *s = esp_camera_sensor_get();
+  return s->set_framesize(s,(framesize_t)size);
 }
 
 uint32_t wc_get_frame(void) {
