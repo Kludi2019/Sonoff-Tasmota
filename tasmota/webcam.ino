@@ -39,15 +39,14 @@
 
 camera_fb_t *wc_fb;
 uint8_t wc_up;
-bool psram;
 uint16_t wc_width;
 uint16_t wc_height;
 
 uint32_t webcam_setup(void) {
+bool psram;
 
   if (wc_up) {
-    if (psram) return 2;
-    return 1;
+    return wc_up;
   }
 
 camera_config_t config;
@@ -161,8 +160,10 @@ camera_config_t config;
 
   wc_up=1;
 
-  if (psram) return 2;
-  return 1;
+  if (psram) {
+    wc_up=2;
+  }
+  return wc_up;
 }
 
 uint32_t wc_set_framesize(uint32_t size) {
