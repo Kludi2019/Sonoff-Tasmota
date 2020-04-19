@@ -65,16 +65,6 @@ uint32_t ESP_getBootVersion(void)
 	return 1;
 }
 
-bool ESP_rtcUserMemoryWrite(uint32_t offset, uint32_t *data, size_t size)
-{
-	return false;
-}
-
-bool ESP_rtcUserMemoryRead(uint32_t offset, uint32_t *data, size_t size)
-{
-	return false;
-}
-
 void ESP_reset()
 {
 	ESP.restart();

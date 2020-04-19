@@ -1,6 +1,6 @@
 #ifdef USE_SENDMAIL
 
-#ifdef ESP8266
+#ifndef USE_ESP32MAIL
 
 #include "sendemail.h"
 
@@ -396,38 +396,167 @@ exit:
 //For demo only
 #include "image.h"
 
+#ifndef SEND_MAIL_MINRAM
+#define SEND_MAIL_MINRAM 30*1024
+#endif
+
+#define xPSTR(a) a
 //The Email Sending data object contains config and data to send
 SMTPData smtpData;
 
 //Callback function to get the Email sending status
 //void sendCallback(SendStatus info);
+#define DEBUG_EMAIL_PORT
 
 uint16_t SendMail(char *buffer) {
+  char *params,*oparams;
+  const char *mserv;
+  uint16_t port;
+  const char *user;
+  const char *pstr;
+  const char *passwd;
+  const char *from;
+  const char *to;
+  const char *subject;
+  const char *cmd;
+  uint16_t status=1;
+  uint16_t blen;
+  char *endcmd;
 
+  // return if not enough memory
+  uint32_t mem=ESP.getFreeHeap();
+  AddLog_P2(LOG_LEVEL_INFO, PSTR("heap: %d"),mem);
+  if (mem<SEND_MAIL_MINRAM) {
+    return 4;
+  }
+
+  while (*buffer==' ') buffer++;
+
+  if (*buffer!='[') {
+      goto exit;
+  }
+
+  buffer++;
+
+  endcmd=strchr(buffer,']');
+  if (!endcmd) {
+    goto exit;
+  }
+
+  // copy params
+  blen=(uint32_t)endcmd-(uint32_t)buffer;
+  oparams=(char*)calloc(blen+2,1);
+  if (!oparams) return 4;
+  params=oparams;
+  strncpy(oparams,buffer,blen+2);
+  oparams[blen]=0;
+
+  cmd=endcmd+1;
+
+  #ifdef DEBUG_EMAIL_PORT
+    AddLog_P2(LOG_LEVEL_INFO, PSTR("mailsize: %d"),blen);
+  #endif
+
+  mserv=strtok(params,":");
+  if (!mserv) {
+      goto exit;
+  }
+
+  // port
+  pstr=strtok(NULL,":");
+  if (!pstr) {
+      goto exit;
+  }
+
+  #ifdef EMAIL_PORT
+  if (*pstr=='*') {
+    port=EMAIL_PORT;
+  } else {
+    port=atoi(pstr);
+  }
+  #else
+  port=atoi(pstr);
+  #endif
+
+  user=strtok(NULL,":");
+  if (!user) {
+      goto exit;
+  }
+
+  passwd=strtok(NULL,":");
+  if (!passwd) {
+      goto exit;
+  }
+
+  from=strtok(NULL,":");
+  if (!from) {
+      goto exit;
+  }
+
+  to=strtok(NULL,":");
+  if (!to) {
+      goto exit;
+  }
+
+  subject=strtok(NULL,"]");
+  if (!subject) {
+      goto exit;
+  }
+
+
+  #ifdef EMAIL_USER
+  if (*user=='*') {
+    user=xPSTR(EMAIL_USER);
+  }
+  #endif
+  #ifdef EMAIL_PASSWORD
+  if (*passwd=='*') {
+    passwd=xPSTR(EMAIL_PASSWORD);
+  }
+  #endif
+  #ifdef EMAIL_SERVER
+  if (*mserv=='*') {
+    mserv=xPSTR(EMAIL_SERVER);
+  }
+  #endif
+
+  #ifdef DEBUG_EMAIL_PORT
+  AddLog_P2(LOG_LEVEL_INFO, PSTR("%s - %d - %s - %s"),mserv,port,user,passwd);
+  #endif
+
+  #ifdef EMAIL_FROM
+  if (*from=='*') {
+    from=xPSTR(EMAIL_FROM);
+  }
+  #endif
+
+  #ifdef DEBUG_EMAIL_PORT
+  AddLog_P2(LOG_LEVEL_INFO, PSTR("%s - %s - %s - %s"),from,to,subject,cmd);
+  #endif
 
   smtpData.setDebug(true);
 
   //Set the Email host, port, account and password
-  smtpData.setLogin(EMAIL_SERVER, EMAIL_PORT, EMAIL_USER, EMAIL_PASSWORD);
+  smtpData.setLogin(mserv, port, user, passwd);
 
   //For library version 1.2.0 and later which STARTTLS protocol was supported,the STARTTLS will be
   //enabled automatically when port 587 was used, or enable it manually using setSTARTTLS function.
   //smtpData.setSTARTTLS(true);
 
   //Set the sender name and Email
-  smtpData.setSender("ESP32", EMAIL_FROM);
+  smtpData.setSender("ESP32",from);
 
   //Set Email priority or importance High, Normal, Low or 1 to 5 (1 is highest)
   smtpData.setPriority("High");
 
   //Set the subject
-  smtpData.setSubject("ESP32 SMTP Mail Sending Test");
+  smtpData.setSubject(subject);
 
   //Set the message - normal text or html format
-  smtpData.setMessage("<div style=\"color:#ff0000;font-size:20px;\">Hello World! - From ESP32</div>", true);
+  smtpData.setMessage(cmd, true);
 
   //Add recipients, can add more than one recipient
-  smtpData.addRecipient("gmutz2010@googlemail.com");
+  smtpData.addRecipient(to);
 
   //Add attachments, can add the file or binary data from flash memory, file in SD card
   //Data from internal memory
@@ -443,24 +572,28 @@ uint16_t SendMail(char *buffer) {
   //Add some custom header to message
   //See https://tools.ietf.org/html/rfc822
   //These header fields can be read from raw or source of message when it received)
-  smtpData.addCustomMessageHeader("Date: Sat, 10 Aug 2019 21:39:56 -0700 (PDT)");
+  //smtpData.addCustomMessageHeader("Date: Sat, 10 Aug 2019 21:39:56 -0700 (PDT)");
   //Be careful when set Message-ID, it should be unique, otherwise message will not store
   //smtpData.addCustomMessageHeader("Message-ID: <abcde.fghij@gmail.com>");
 
   //Set the storage types to read the attach files (SD is default)
-  //smtpData.setFileStorageType(MailClientStorageType::SPIFFS);
+  smtpData.setFileStorageType(MailClientStorageType::SPIFFS);
   //smtpData.setFileStorageType(MailClientStorageType::SD);
 
   //smtpData.setSendCallback(sendCallback);
 
   //Start sending Email, can be set callback function to track the status
-  if (!MailClient.sendMail(smtpData))
+  if (!MailClient.sendMail(smtpData)) {
     Serial.println("Error sending Email, " + MailClient.smtpErrorReason());
-
+  } else {
+    status=0;
+  }
   //Clear all data from Email object to free memory
   smtpData.empty();
 
-  return 0;
+  exit:
+  if (oparams) free(oparams);
+  return status;
 }
 
 /*
