@@ -1,5 +1,7 @@
 #ifdef USE_SENDMAIL
 
+#ifdef ESP8266
+
 #include "sendemail.h"
 
 // enable serial debugging
@@ -370,49 +372,110 @@ exit:
   return status;
 }
 
-#ifdef ESP32
-
-#include <ESP32_MailClient.h>
+#else
 
 /*
-import umail
-import ubinascii
-import urandom as random
+ * Created by K. Suwatchai (Mobizt)
+ *
+ * Email: k_suwatchai@hotmail.com
+ *
+ * Github: https://github.com/mobizt
+ *
+ * Copyright (c) 2019 mobizt
+ *
+*/
 
-smtp_config = {'host' : 'xxx',
-                'port' : 587,
-                'username' : 'yyy',
-                'password' : 'zzz'}
 
-def boundary():
-    return ''.join(random.choice('0123456789ABCDEFGHIJKLMNOUPQRSTUWVXYZ') for i in range(15))
+//To use send Email for Gmail to port 465 (SSL), less secure app option should be enabled. https://myaccount.google.com/lesssecureapps?pli=1
 
-def send_mail(email, attachment = None):
-    smtp = umail.SMTP(**smtp_config)
-    smtp.to(email['to'])
-    smtp.write("From: {0} <{0}>\n".format(email.get('from', smtp_config['username'])))
-    smtp.write("To: {0} <{0}>\n".format(email['to']))
-    smtp.write("Subject: {0}\n".format(email['subject']))
-    if attachment:
-        text_id = boundary()
-        attachment_id = boundary()
-        smtp.write("MIME-Version: 1.0\n")
-        smtp.write('Content-Type: multipart/mixed;\n boundary="------------{0}"\n'.format(attachment_id))
-        smtp.write('--------------{0}\nContent-Type: multipart/alternative;\n boundary="------------{1}"\n\n'.format(attachment_id, text_id))
-        smtp.write('--------------{0}\nContent-Type: text/plain; charset=utf-8; format=flowed\nContent-Transfer-Encoding: 7bit\n\n{1}\n\n--------------{0}--\n\n'.format(text_id, email['text']))
-        smtp.write('--------------{0}\nContent-Type: image/jpeg;\n name="{1}"\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment;\n  filename="{1}"\n\n'.format(attachment_id, attachment['name']))
-        b64 = ubinascii.b2a_base64(attachment['bytes'])
-        smtp.write(b64)
-        smtp.write('--------------{0}--'.format(attachment_id))
-    else:
-        smtp.send(email['text'])
-    smtp.send()
-    smtp.quit()
-    */
-/*I use it to send image from esp32-cam like this:
+//To receive Email for Gmail, IMAP option should be enabled. https://support.google.com/mail/answer/7126229?hl=en
 
-send_mail({'to': 'my@email', 'subject': 'Message from camera', 'text': 'check this out'},
-          {'bytes' : camera.capture(), 'name' : 'img.jpeg'})
+#include "ESP32_MailClient.h"
+#include "SD.h"
+
+//For demo only
+#include "image.h"
+
+//The Email Sending data object contains config and data to send
+SMTPData smtpData;
+
+//Callback function to get the Email sending status
+//void sendCallback(SendStatus info);
+
+uint16_t SendMail(char *buffer) {
+
+
+  smtpData.setDebug(true);
+
+  //Set the Email host, port, account and password
+  smtpData.setLogin(EMAIL_SERVER, EMAIL_PORT, EMAIL_USER, EMAIL_PASSWORD);
+
+  //For library version 1.2.0 and later which STARTTLS protocol was supported,the STARTTLS will be
+  //enabled automatically when port 587 was used, or enable it manually using setSTARTTLS function.
+  //smtpData.setSTARTTLS(true);
+
+  //Set the sender name and Email
+  smtpData.setSender("ESP32", EMAIL_FROM);
+
+  //Set Email priority or importance High, Normal, Low or 1 to 5 (1 is highest)
+  smtpData.setPriority("High");
+
+  //Set the subject
+  smtpData.setSubject("ESP32 SMTP Mail Sending Test");
+
+  //Set the message - normal text or html format
+  smtpData.setMessage("<div style=\"color:#ff0000;font-size:20px;\">Hello World! - From ESP32</div>", true);
+
+  //Add recipients, can add more than one recipient
+  smtpData.addRecipient("gmutz2010@googlemail.com");
+
+  //Add attachments, can add the file or binary data from flash memory, file in SD card
+  //Data from internal memory
+  smtpData.addAttachData("firebase_logo.png", "image/png", (uint8_t *)dummyImageData, sizeof dummyImageData);
+
+  //Add attach files from SD card
+  //Comment these two lines, if no SD card connected
+  //Two files that previousely created.
+  //smtpData.addAttachFile("/binary_file.dat");
+  //smtpData.addAttachFile("/text_file.txt");
+
+
+  //Add some custom header to message
+  //See https://tools.ietf.org/html/rfc822
+  //These header fields can be read from raw or source of message when it received)
+  smtpData.addCustomMessageHeader("Date: Sat, 10 Aug 2019 21:39:56 -0700 (PDT)");
+  //Be careful when set Message-ID, it should be unique, otherwise message will not store
+  //smtpData.addCustomMessageHeader("Message-ID: <abcde.fghij@gmail.com>");
+
+  //Set the storage types to read the attach files (SD is default)
+  //smtpData.setFileStorageType(MailClientStorageType::SPIFFS);
+  //smtpData.setFileStorageType(MailClientStorageType::SD);
+
+  //smtpData.setSendCallback(sendCallback);
+
+  //Start sending Email, can be set callback function to track the status
+  if (!MailClient.sendMail(smtpData))
+    Serial.println("Error sending Email, " + MailClient.smtpErrorReason());
+
+  //Clear all data from Email object to free memory
+  smtpData.empty();
+
+  return 0;
+}
+
+/*
+//Callback function to get the Email sending status
+void sendCallback(SendStatus msg)
+{
+  //Print the current status
+  Serial.println(msg.info());
+
+  //Do something when complete
+  if (msg.success())
+  {
+    Serial.println("----------------");
+  }
+}
 */
 #endif
 
