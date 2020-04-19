@@ -4827,16 +4827,11 @@ void ScriptWebShow(void) {
 
 #ifdef USE_SENDMAIL
 
-#ifdef ESP8266
-void script_send_email_body(BearSSL::WiFiClientSecure_light *client) {
-#else
-void script_send_email_body(WiFiClient *client) {
-#endif
+void script_send_email_body(char *tmp) {
 
 uint8_t msect=Run_Scripter(">m",-2,0);
   if (msect==99) {
     char line[128];
-    char tmp[128];
     char *lp=glob_script_mem.section_ptr+2;
     while (lp) {
       while (*lp==SCRIPT_EOL) {
@@ -4858,7 +4853,7 @@ uint8_t msect=Run_Scripter(">m",-2,0);
           cp++;
         }
         Replace_Cmd_Vars(line,tmp,sizeof(tmp));
-        client->println(tmp);
+        //client->println(tmp);
       }
       if (*lp==SCRIPT_EOL) {
         lp++;
@@ -4869,7 +4864,9 @@ uint8_t msect=Run_Scripter(">m",-2,0);
       }
     }
   } else {
-    client->println("*");
+    tmp[0]='*';
+    tmp[1]=0;
+    //client->println("*");
   }
 }
 #endif
@@ -4916,7 +4913,7 @@ void ScriptJsonAppend(void) {
 #endif //USE_SCRIPT_JSON_EXPORT
 
 void CmndEvent(void) {
-  
+
 }
 /*********************************************************************************************\
  * Interface

@@ -552,15 +552,39 @@ uint16_t SendMail(char *buffer) {
   //Set the subject
   smtpData.setSubject(subject);
 
+  #ifdef USE_SCRIPT
+    if (*cmd=='*' && *(cmd+1)==0) {
+      char tmp[128];
+      script_send_email_body(tmp);
+      smtpData.setMessage(tmp, true);
+    } else {
+      smtpData.setMessage(cmd, true);
+    }
+  #else
   //Set the message - normal text or html format
   smtpData.setMessage(cmd, true);
+  #endif
+
 
   //Add recipients, can add more than one recipient
   smtpData.addRecipient(to);
 
   //Add attachments, can add the file or binary data from flash memory, file in SD card
   //Data from internal memory
-  smtpData.addAttachData("firebase_logo.png", "image/png", (uint8_t *)dummyImageData, sizeof dummyImageData);
+  //smtpData.addAttachData("firebase_logo.png", "image/png", (uint8_t *)dummyImageData, sizeof dummyImageData);
+
+#define MAX_PICSTORE 4
+  uint32_t cnt;
+  uint8_t *buff;
+  uint32_t len;
+  for (cnt=0;cnt<MAX_PICSTORE;cnt++) {
+      uint32_t res=get_picstore(cnt,&buff,&len);
+      if (res) {
+        char str[12];
+        sprintf(str,"img_%1d.jpg",cnt+1);
+        smtpData.addAttachData(str, "image/jpg",buff,len);
+      }
+  }
 
   //Add attach files from SD card
   //Comment these two lines, if no SD card connected

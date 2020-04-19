@@ -29,7 +29,7 @@
 
 
 #include "esp_camera.h"
-
+#include "sensor.h"
 
 //#include "SimStreamer.h"
 //#include "OV2640Streamer.h"
@@ -48,6 +48,8 @@ bool psram;
   if (wc_up) {
     return wc_up;
   }
+
+//esp_log_level_set("*", ESP_LOG_VERBOSE);
 
 camera_config_t config;
   config.ledc_channel = LEDC_CHANNEL_0;
@@ -127,24 +129,29 @@ camera_config_t config;
   //                      for larger pre-allocated frame buffer.
   psram=psramFound();
   if (psram) {
-    config.frame_size = FRAMESIZE_VGA;
+    config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10;
     config.fb_count = 2;
     AddLog_P(LOG_LEVEL_INFO,"PSRAM found!");
   } else {
-    config.frame_size = FRAMESIZE_CIF;
+    config.frame_size = FRAMESIZE_VGA;
     config.jpeg_quality = 12;
     config.fb_count = 1;
     AddLog_P(LOG_LEVEL_INFO,"PSRAM not found!");
   }
 
-  //cam.init(esp32cam_config);
+  // stupid workaround camera diver eats up static ram should prefer SPIRAM
+  void *x=malloc(100000);
 
   esp_err_t err = esp_camera_init(&config);
+
+  if (x) free(x);
+
   if (err != ESP_OK) {
     AddLog_P2(LOG_LEVEL_INFO,"Camera init failed with error 0x%x", err);
     return 0;
   }
+
 
   sensor_t * wc_s = esp_camera_sensor_get();
   // initial sensors are flipped vertically and colors are a bit saturated
@@ -156,7 +163,12 @@ camera_config_t config;
   // drop down frame size for higher initial frame rate
   wc_s->set_framesize(wc_s, FRAMESIZE_CIF);
 
+
   AddLog_P(LOG_LEVEL_INFO,"Camera successfully initialized!");
+
+
+  //if (s_state)
+  //wc_width=s_state->width;
 
   wc_up=1;
 
@@ -186,16 +198,23 @@ struct PICSTORE {
 } picstore[MAX_PICSTORE];
 
 
+uint32_t get_picstore(uint32_t num, uint8_t **buff,uint32_t *len) {
+  if (!picstore[num].len) return 0;
+  *buff=picstore[num].buff;
+  *len=picstore[num].len;
+  return 1;
+}
 
 uint32_t wc_get_frame(int32_t bnum) {
   size_t _jpg_buf_len = 0;
   uint8_t * _jpg_buf = NULL;
 
-  //return 0;
   if (bnum<0) {
     if (bnum<-MAX_PICSTORE) bnum=-1;
+    bnum=-bnum;
     bnum--;
     if (picstore[bnum].buff) free(picstore[bnum].buff);
+    picstore[bnum].len=0;
     return 0;
   }
 
