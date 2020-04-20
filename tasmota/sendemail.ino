@@ -402,7 +402,7 @@ void xsend_message_txt(char *msg) {
 #include "SD.h"
 
 //For demo only
-#include "image.h"
+//#include "image.h"
 
 #ifndef SEND_MAIL_MINRAM
 #define SEND_MAIL_MINRAM 30*1024
