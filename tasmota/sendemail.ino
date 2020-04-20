@@ -416,7 +416,7 @@ SMTPData smtpData;
 
 //Callback function to get the Email sending status
 //void sendCallback(SendStatus info);
-//#define DEBUG_EMAIL_PORT
+#define DEBUG_EMAIL_PORT
 
 uint16_t SendMail(char *buffer) {
   char *params,*oparams;
