@@ -28,6 +28,8 @@
 #define SEND_MAIL_MINRAM 12*1024
 #endif
 
+void script_send_email_body(void(*func)(char *));
+
 #define xPSTR(a) a
 
 uint16_t SendMail(char *buffer) {
@@ -176,13 +178,15 @@ exit:
   return status;
 }
 
+
+
 #ifdef ESP8266
-void script_send_email_body(BearSSL::WiFiClientSecure_light *client);
+WiFiClient *g_client;
 SendEmail::SendEmail(const String& host, const int port, const String& user, const String& passwd, const int timeout, const int auth_used) :
     host(host), port(port), user(user), passwd(passwd), timeout(timeout), ssl(ssl), auth_used(auth_used), client(new BearSSL::WiFiClientSecure_light(1024,1024)) {
 }
 #else
-void script_send_email_body(WiFiClient *client);
+WiFiClient *g_client;
 SendEmail::SendEmail(const String& host, const int port, const String& user, const String& passwd, const int timeout, const int auth_used) :
     host(host), port(port), user(user), passwd(passwd), timeout(timeout), ssl(ssl), auth_used(auth_used), client(new WiFiClientSecure()) {
 }
@@ -348,7 +352,8 @@ String buffer;
 
 #ifdef USE_SCRIPT
   if (*msg=='*' && *(msg+1)==0) {
-    script_send_email_body(client);
+    g_client=client;
+    script_send_email_body(xsend_message_txt);
   } else {
     client->println(msg);
   }
@@ -372,6 +377,9 @@ exit:
   return status;
 }
 
+void xsend_message_txt(char *msg) {
+  g_client->println(msg);
+}
 #else
 
 /*
@@ -400,13 +408,15 @@ exit:
 #define SEND_MAIL_MINRAM 30*1024
 #endif
 
+void script_send_email_body(void(*func)(char *));
+
 #define xPSTR(a) a
 //The Email Sending data object contains config and data to send
 SMTPData smtpData;
 
 //Callback function to get the Email sending status
 //void sendCallback(SendStatus info);
-#define DEBUG_EMAIL_PORT
+//#define DEBUG_EMAIL_PORT
 
 uint16_t SendMail(char *buffer) {
   char *params,*oparams;
@@ -554,9 +564,8 @@ uint16_t SendMail(char *buffer) {
 
   #ifdef USE_SCRIPT
     if (*cmd=='*' && *(cmd+1)==0) {
-      char tmp[128];
-      script_send_email_body(tmp);
-      smtpData.setMessage(tmp, true);
+      smtpData.clrMessage(true);
+      script_send_email_body(send_message_txt);
     } else {
       smtpData.setMessage(cmd, true);
     }
@@ -573,6 +582,7 @@ uint16_t SendMail(char *buffer) {
   //Data from internal memory
   //smtpData.addAttachData("firebase_logo.png", "image/png", (uint8_t *)dummyImageData, sizeof dummyImageData);
 
+#if defined(ESP32) && defined(USE_WEBCAM)
 #define MAX_PICSTORE 4
   uint32_t cnt;
   uint8_t *buff;
@@ -585,6 +595,7 @@ uint16_t SendMail(char *buffer) {
         smtpData.addAttachData(str, "image/jpg",buff,len);
       }
   }
+#endif
 
   //Add attach files from SD card
   //Comment these two lines, if no SD card connected
@@ -608,7 +619,9 @@ uint16_t SendMail(char *buffer) {
 
   //Start sending Email, can be set callback function to track the status
   if (!MailClient.sendMail(smtpData)) {
-    Serial.println("Error sending Email, " + MailClient.smtpErrorReason());
+    //Serial.println("Error sending Email, " + MailClient.smtpErrorReason());
+    AddLog_P2(LOG_LEVEL_INFO, PSTR("Error sending Email, %s"), MailClient.smtpErrorReason());
+
   } else {
     status=0;
   }
@@ -618,6 +631,11 @@ uint16_t SendMail(char *buffer) {
   exit:
   if (oparams) free(oparams);
   return status;
+}
+
+
+void send_message_txt(char *txt) {
+  smtpData.addMessage(txt);
 }
 
 /*

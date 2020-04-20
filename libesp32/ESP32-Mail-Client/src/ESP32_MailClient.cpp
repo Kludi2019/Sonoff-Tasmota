@@ -1,26 +1,26 @@
 /*
  *Mail Client Arduino Library for ESP32, version 2.1.4
- * 
+ *
  * April 12, 2020
- * 
- * This library allows ESP32 to send Email with/without attachment and receive Email with/without attachment download through SMTP and IMAP servers. 
- * 
+ *
+ * This library allows ESP32 to send Email with/without attachment and receive Email with/without attachment download through SMTP and IMAP servers.
+ *
  * The library supports all ESP32 MCU based modules.
- * 
+ *
  * The MIT License (MIT)
  * Copyright (c) 2019 K. Suwatchai (Mobizt)
- * 
- * 
+ *
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
  * the Software without restriction, including without limitation the rights to
  * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
  * the Software, and to permit persons to whom the Software is furnished to do so,
  * subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
@@ -1262,7 +1262,7 @@ bool ESP32_MailClient::smtpClientAvailable(SMTPData &smtpData, bool available)
 
 bool ESP32_MailClient::imapClientAvailable(IMAPData &imapData, bool available)
 {
-  
+
   if (!imapData._net->getStreamPtr())
     return false;
 
@@ -4573,6 +4573,17 @@ void SMTPData::setMessage(const String &message, bool htmlFormat)
   _message.clear();
   _message += message.c_str();
   _htmlFormat = htmlFormat;
+}
+
+void SMTPData::clrMessage(bool htmlFormat)
+{
+  _message.clear();
+  _htmlFormat = htmlFormat;
+}
+
+void SMTPData::addMessage(const String &message)
+{
+  _message += message.c_str();
 }
 
 String SMTPData::getMessage()

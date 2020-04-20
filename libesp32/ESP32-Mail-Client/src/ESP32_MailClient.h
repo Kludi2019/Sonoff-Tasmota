@@ -1,26 +1,26 @@
 /*
  *Mail Client Arduino Library for ESP32, version 2.1.4
- * 
+ *
  * April 12, 2020
- * 
- * This library allows ESP32 to send Email with/without attachment and receive Email with/without attachment download through SMTP and IMAP servers. 
- * 
+ *
+ * This library allows ESP32 to send Email with/without attachment and receive Email with/without attachment download through SMTP and IMAP servers.
+ *
  * The library supports all ESP32 MCU based modules.
- * 
+ *
  * The MIT License (MIT)
  * Copyright (c) 2019 K. Suwatchai (Mobizt)
- * 
- * 
+ *
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
  * the Software without restriction, including without limitation the rights to
  * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
  * the Software, and to permit persons to whom the Software is furnished to do so,
  * subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
@@ -38,7 +38,7 @@
 
 #include <Arduino.h>
 #include "WiFiClientSecureESP32.h"
-#include <ETH.h> 
+#include <ETH.h>
 #include <vector>
 #include <string>
 #include <SD.h>
@@ -396,9 +396,9 @@ class ESP32_MailClient
 
 public:
   /*
-     
+
     Sending Email through SMTP server
-      
+
     @param net - HTTPClientESP32 WiFi client.
 
     @return Boolean type status indicates the success of operation.
@@ -407,20 +407,20 @@ public:
   bool sendMail(SMTPData &smtpData);
 
   /*
-  
+
     Reading Email through IMAP server.
-  
+
     @param imapData - IMAP Data object to hold data and instances.
 
     @return Boolean type status indicates the success of operation.
-  
+
   */
   bool readMail(IMAPData &imapData);
 
   /*
-  
+
     Set the argument to the Flags for message.
-  
+
     @param imapData - IMAP Data object to hold data and instances.
 
     @param msgUID - The UID of message.
@@ -429,16 +429,16 @@ public:
 
 
     @return Boolean type status indicates the success of operation.
-  
+
   */
   bool setFlag(IMAPData &imapData, int msgUID, const String &flags);
 
 
 
   /*
-  
+
     Add the argument to the Flags for message.
-  
+
     @param imapData - IMAP Data object to hold data and instances.
 
     @param msgUID - The UID of message.
@@ -447,14 +447,14 @@ public:
 
 
     @return Boolean type status indicates the success of operation.
-  
+
   */
   bool addFlag(IMAPData &imapData, int msgUID, const String &flags);
 
   /*
-  
+
     Remove the argument from the Flags for message.
-  
+
     @param imapData - IMAP Data object to hold data and instances.
 
     @param msgUID - The UID of message.
@@ -463,32 +463,32 @@ public:
 
 
     @return Boolean type status indicates the success of operation.
-  
+
   */
   bool removeFlag(IMAPData &imapData, int msgUID, const String &flags);
 
   /*
-  
+
     Get the Email sending error details.
-  
+
     @return Error details string (String object).
-  
+
   */
   String smtpErrorReason();
 
   /*
-  
+
     Get the Email reading error details.
-  
+
     @return Error details string (String object).
-  
+
   */
   String imapErrorReason();
 
   /*
-  
+
     Init SD card with GPIO pins.
-  
+
     @param sck -  SPI Clock pin.
     @param miso - SPI MISO pin.
     @param mosi - SPI MOSI pin.
@@ -500,18 +500,18 @@ public:
   bool sdBegin(uint8_t sck, uint8_t miso, uint8_t mosi, uint8_t ss);
 
   /*
-  
+
     Init SD card with default GPIO pins.
 
     @return Boolean type status indicates the success of operation.
-  
+
   */
   bool sdBegin(void);
 
   struct IMAP_COMMAND_TYPE;
   struct IMAP_HEADER_TYPE;
 
-  
+
 ESP32TimeHelper Time;
 
 private:
@@ -522,7 +522,7 @@ private:
   uint8_t _sck, _miso, _mosi, _ss;
   unsigned long _lastReconnectMillis = 0;
   uint16_t _reconnectTimeout = 10000;
-  
+
 
   std::string smtpErrorReasonStr();
   std::string imapErrorReasonStr();
@@ -613,10 +613,10 @@ public:
 
   /*
     Set the IMAP server login credentials.
-  
+
     @param host - IMAP server e.g. imap.gmail.com.
     @param port - IMAP port e.g. 993 for gmail.
-    @param loginEmail - The Email address of account.    
+    @param loginEmail - The Email address of account.
     @param loginPassword - The account password.
     @rootCA - Root CA certificate base64 string
 
@@ -625,7 +625,7 @@ public:
   void setLogin(const String &host, uint16_t port, const String &loginEmail, const String &loginPassword);
 
   /*
-    
+
     Set STARTTLS mode to enable STARTTLS protocol
 
      @param starttls - bool flag that enables STARTTLS mode
@@ -634,7 +634,7 @@ public:
   void setSTARTTLS(bool starttls);
 
    /*
-    
+
     Set debug print to serial
 
      @param debug - bool flag to enable debug
@@ -645,46 +645,46 @@ public:
   /*
 
     Set the mailbox folder to search or fetch.
-    
+
     @param folderName - Known mailbox folder. Ddefault value is INBOX
-  
+
   */
   void setFolder(const String &folderName);
 
   /*
-  
+
     Set the maximum message buffer size for text/html result from search or fetch the message.
-  
+
     @param size - The message size in byte.
-    
+
   */
   void setMessageBufferSize(size_t size);
 
   /*
-  
+
     Set the maximum attachment file size to be downloaded.
-    
+
     @param size - The attachement file size in byte.
-  
+
   */
   void setAttachmentSizeLimit(size_t size);
 
   /*
     Set the search criteria used in selected mailbox search.
 
-    In case of message UID was set through setFetchUID function, search operation will not process, 
+    In case of message UID was set through setFetchUID function, search operation will not process,
     you need to clear message UID by calling imapData.setFetchUID("") to clear.
 
     @param criteria - Search criteria String.
 
     If folder is not set, the INBOX folder will be used
-    
+
     Example:
-    
+
     "SINCE 10-Feb-2019" will search all messages that received since 10 Feb 2019
     "UID SEARCH ALL" will seach all message which will return the message UID that can be use later for fetch one or more messages.
 
- 
+
     Search criteria can be consisted these keywords
 
     ALL - All messages in the mailbox; the default initial key for	ANDing.
@@ -697,10 +697,10 @@ public:
     DRAFT - Messages with the \Draft flag set.
     FLAGGED - Messages with the \Flagged flag set.
     FROM - Messages that contain the specified string in the envelope	structure's FROM field.
-    HEADER - Messages that have a header with the specified field-name (as defined in [RFC-2822]) 
+    HEADER - Messages that have a header with the specified field-name (as defined in [RFC-2822])
     and that contains the specified string	in the text of the header (what comes after the colon).
 
-    If the string to search is zero-length, this matches all messages that have a header line with 
+    If the string to search is zero-length, this matches all messages that have a header line with
     the specified field-name regardless of	the contents.
 
     KEYWORD - Messages with the specified keyword flag set.
@@ -722,7 +722,7 @@ public:
     SUBJECT - Messages that contain the specified string in the envelope structure's SUBJECT field.
     TEXT - Messages that contain the specified string in the header or body of the message.
     TO - Messages that contain the specified string in the envelope structure's TO field.
-    UID - Messages with unique identifiers corresponding to the specified unique identifier set.  
+    UID - Messages with unique identifiers corresponding to the specified unique identifier set.
     Sequence set ranges are permitted.
     UNANSWERED - Messages that do not have the \Answered flag set.
     UNDELETED - Messages that do not have the \Deleted flag set.
@@ -736,7 +736,7 @@ public:
 
   /*
     Set to search the unseen message.
-    
+
     @param unseenSearch - Boolean flag to enable unseen message search.
 
     This function will be overridden (omitted) by setFetchUID as setSearchCriteria.
@@ -746,7 +746,7 @@ public:
 
   /*
     Set the download folder.
-    
+
     @param path - Path in SD card.
 
     All text/html message and attachemnts will be saved to message UID folder which created in defined path
@@ -756,9 +756,9 @@ public:
   void setSaveFilePath(const String &path);
 
   /*
-    
+
     Specify message UID to fetch or read.
-    
+
     @param fetchUID - The message UID.
 
     Specify the message UID to fetch (read) only specific message instead of search.
@@ -769,7 +769,7 @@ public:
   /*
 
     Set storage type to save download attached file or messages.
-    
+
     @param storageType - The storage type to save file, MailClientStorageType::SD or MailClientStorageType::SPIFFS
 
   */
@@ -778,27 +778,27 @@ public:
   /*
 
     Enable/disable attachment download.
-    
+
     @param download - Boolean flag to enable/disable attachment download.
 
   */
   void setDownloadAttachment(bool download);
 
   /*
-    
+
     Enable/disable html message result.
-    
+
     @param htmlFormat - Boolean flag to enable/disable html message result.
 
     The default value is false.
-  
+
   */
   void setHTMLMessage(bool htmlFormat);
 
   /*
 
     Enable/disable plain text message result.
-    
+
     @param textFormat - Boolean flag to enable/disable plain text message result.
 
     The default value is true.
@@ -807,9 +807,9 @@ public:
   void setTextMessage(bool textFormat);
 
   /*
-    
+
     Set the maximum message to search.
-    
+
     @param limit - Any number from 0 to 65535.
 
     The default value is 20.
@@ -819,28 +819,28 @@ public:
 
   /*
 
-    Enable/disable recent sort result.    
-    
+    Enable/disable recent sort result.
+
     @param recentSort - Boolean flag to enable/disable recent message sort result.
 
      The default value is true.
-   
+
    */
   void setRecentSort(bool recentSort);
 
   /*
-    
+
     Assign callback function that return status of message fetching or reading.
-    
+
     @param readCallback - The function that accept readStatusCallback as parameter.
-  
+
   */
   void setReadCallback(readStatusCallback readCallback);
 
   /*
-    
+
     Enable/disable attachement download progress while fetching or receiving message.
-    
+
     @param report - Boolean flag to enable/disable attachement download progress while fetching or receiving message.
 
     To get the download status, Callback function should be set through setReadCallback.
@@ -849,16 +849,16 @@ public:
   void setDownloadReport(bool report);
 
   /*
-    
+
     Determine only message header is return when search.
-    
+
   */
   bool isHeaderOnly();
 
   /*
-    
+
     Get the sender name/Email for selected message from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return Sender name/Email String.
@@ -867,9 +867,9 @@ public:
   String getFrom(uint16_t messageIndex);
 
   /*
-    
+
     Get the sender name/Email charactor encoding.
-    
+
     @param messageIndex - The index of message.
 
     @return Sender name/Email charactor encoding which use for decoding.
@@ -878,31 +878,31 @@ public:
   String getFromCharset(uint16_t messageIndex);
 
   /*
-    
+
     Get the recipient name/Email for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return Recipient name/Email String.
-  
+
   */
   String getTo(uint16_t messageIndex);
 
   /*
-    
+
     Get the recipient name/Email charactor encoding.
-    
+
     @param messageIndex - The index of message.
 
     @return Recipient name/Email charactor encoding which use in decoding to local language.
-  
+
   */
   String getToCharset(uint16_t messageIndex);
 
   /*
-    
+
     Get the CC name/Email for selected message index of IMAPData result.
-    
+
     @param messageIndex - The index of message.
 
     @return CC name/Email String.
@@ -911,20 +911,20 @@ public:
   String getCC(uint16_t messageIndex);
 
   /*
-    
+
     Get the CC name/Email charactor encoding.
-    
+
     @param messageIndex - The index of message.
 
     @return CC name/Email charactor encoding which use in decoding to local language.
-  
+
   */
   String getCCCharset(uint16_t messageIndex);
 
   /*
-    
+
     Get the message subject for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return Message subject name/Email String.
@@ -933,9 +933,9 @@ public:
   String getSubject(uint16_t messageIndex);
 
   /*
-    
+
     Get the message subject charactor encoding.
-    
+
     @param messageIndex - The index of message.
 
     @return Message subject charactor encoding which use in decoding to local language.
@@ -944,9 +944,9 @@ public:
   String getSubjectCharset(uint16_t messageIndex);
 
   /*
-    
+
     Get the html message for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return The html message String or empty String upon the setHTMLMessage was set.
@@ -955,9 +955,9 @@ public:
   String getHTMLMessage(uint16_t messageIndex);
 
   /*
-    
+
     Get the plain text message for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return The plain text message String or empty String upon the setTextMessage was set.
@@ -966,9 +966,9 @@ public:
   String getTextMessage(uint16_t messageIndex);
 
   /*
-    
+
     Get the html message charactor encoding.
-    
+
     @param messageIndex - The index of message.
 
     @return Html message charactor encoding which use in decoding to local language.
@@ -977,9 +977,9 @@ public:
   String getHTMLMessgaeCharset(uint16_t messageIndex);
 
   /*
-    
+
     Get the text message charactor encoding.
-    
+
     @param messageIndex - The index of message.
 
     @return The text message charactor encoding which use in decoding to local language.
@@ -988,9 +988,9 @@ public:
   String getTextMessgaeCharset(uint16_t messageIndex);
 
   /*
-    
+
     Get the date of received message for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return The date String.
@@ -999,9 +999,9 @@ public:
   String getDate(uint16_t messageIndex);
 
   /*
-    
+
     Get the message UID for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return UID String that can be use in setFetchUID.
@@ -1012,7 +1012,7 @@ public:
   /*
 
     Get the message number for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return The message number which vary upon search criteria and sorting.
@@ -1021,9 +1021,9 @@ public:
   String getNumber(uint16_t messageIndex);
 
   /*
-    
+
     Get the message ID for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return The message ID String.
@@ -1032,20 +1032,20 @@ public:
   String getMessageID(uint16_t messageIndex);
 
   /*
-    
+
     Get the accept language for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return The accept language String.
-  
+
   */
   String getAcceptLanguage(uint16_t messageIndex);
 
   /*
-    
+
     Get the content language of text or html for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return The content language String.
@@ -1054,9 +1054,9 @@ public:
   String getContentLanguage(uint16_t messageIndex);
 
   /*
-    
+
     Determine fetch error status for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return Fetch error status.
@@ -1066,7 +1066,7 @@ public:
 
   /*
     Get fetch error reason for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return Fetch error reason String for selected message index.
@@ -1076,7 +1076,7 @@ public:
 
   /*
     Determine the attachment download error for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return Fetch status.
@@ -1085,9 +1085,9 @@ public:
   bool isDownloadAttachmentFailed(uint16_t messageIndex, size_t attachmentIndex);
 
   /*
-    
+
     Get the attachment download error reason for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return Download error reason String for selected message index.
@@ -1096,9 +1096,9 @@ public:
   String getDownloadAttachmentFailedReason(uint16_t messageIndex, size_t attachmentIndex);
 
   /*
-    
+
     Determine the downloaded/saved text message error status for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return Text message download status.
@@ -1107,42 +1107,42 @@ public:
   bool isDownloadMessageFailed(uint16_t messageIndex);
 
   /*
-    
+
     Get the attachment or message downloadeds error reason for selected message index from search result.
-    
+
     @param messageIndex - The index of message.
 
     @return Downloaded error reason String for selected message index.
-  
+
   */
   String getDownloadMessageFailedReason(uint16_t messageIndex);
 
   /*
-    
+
     Assign the download and decode flags for html message download.
-    
+
     @param download - Boolean flag to enable/disable message download.
 
     @param decoded - Boolean flag to enable/disable html message decoding (support utf8 and base64 encoding).
-  
+
   */
   void saveHTMLMessage(bool download, bool decoded);
 
   /*
-    
+
     Assign the download and decode flags for plain text message download.
-    
+
     @param download - Boolean flag to enable/disable message download.
 
     @param decoded - Boolean flag to enable/disable plain text message decoding (support utf8 and base64 encoding).
-  
+
   */
   void saveTextMessage(bool download, bool decoded);
 
   /*
-    
+
     Determine the mailbox folder count.
-    
+
     @return Folder count number.
 
   */
@@ -1150,11 +1150,11 @@ public:
 
   /*
     Get the mailbox folder name at selected index.
-    
+
     @param folderIndex - Index of folder.
 
     @return Folder name String.
-    
+
     Use folder name from this function for fetch or search.
 
   */
@@ -1171,22 +1171,22 @@ public:
 
   /*
     Get the flag name for selected index.
-    
+
     @param folderIndex - Index of folder.
 
     @return Flag name String.
-    
+
     Use flags from this function for fetch or search.
 
     */
   String getFlag(uint16_t flagIndex);
 
   /*
-    
+
     Get the number of message in selected mailbox folder.
 
     @return Total message number.
-  
+
   */
   size_t totalMessages();
 
@@ -1215,12 +1215,12 @@ public:
     @param messageIndex - Index of message.
 
     @return Number of attachments
-    
+
   */
   size_t getAttachmentCount(uint16_t messageIndex);
 
   /*
-    
+
     Get file name of attachment for selected attachment index and message index from search result.
 
     @param messageIndex - Index of message.
@@ -1256,7 +1256,7 @@ public:
   int getAttachmentFileSize(size_t messageIndex, size_t attachmentIndex);
 
   /*
-    
+
     Get creation date of attachment for selected attachment index and message index from search result.
 
     @param messageIndex - Index of message.
@@ -1296,7 +1296,7 @@ public:
 
 private:
   String getMessage(uint16_t messageIndex, bool htmlFormat);
-  
+
 
   size_t _totalMessage = 0;
   std::string _host = "";
@@ -1356,7 +1356,7 @@ private:
   std::vector<std::string> _errorMsg = std::vector<std::string>();
   std::vector<bool> _error = std::vector<bool>();
   std::vector<const char *> _rootCA = std::vector<const char *>();
-  
+
 
   std::unique_ptr<ESP32MailHTTPClient> _net = std::unique_ptr<ESP32MailHTTPClient>(new ESP32MailHTTPClient());
 
@@ -1372,7 +1372,7 @@ public:
   /*
 
     Set SMTP server login credentials
-    
+
     @param host - SMTP server e.g. smtp.gmail.com
     @param port - SMTP port.
     @param loginEmail - The account Email.
@@ -1384,16 +1384,16 @@ public:
   void setLogin(const String &host, uint16_t port, const String &loginEmail, const String &loginPassword);
 
   /*
-    
+
     Set STARTTLS mode to enable STARTTLS protocol
 
      @param starttls - bool flag that enables STARTTLS mode
 
   */
   void setSTARTTLS(bool starttls);
-  
+
    /*
-    
+
     Set debug print to serial
 
      @param debug - bool flag to enable debug
@@ -1401,7 +1401,7 @@ public:
   */
   void setDebug(bool debug);
   /*
-    
+
     Set Sender info
 
      @param fromName - Sender's name
@@ -1413,7 +1413,7 @@ public:
   /*
 
     Get Sender's name
-    
+
     @return Sender's name String.
 
   */
@@ -1422,7 +1422,7 @@ public:
   /*
 
     Get Sender's Email
-    
+
     @return Sender's Email String.
 
   */
@@ -1433,16 +1433,16 @@ public:
     Set Email priority or importance
 
     @param priority - Number from 1 to 5, 1 for highest, 3 for normal and 5 for lowest priority
-  
+
   */
   void setPriority(int priority);
 
   /*
 
     Set Email priority or importance
-    
+
     @param priority - String (High, Normal or Low)
-  
+
   */
   void setPriority(const String &priority);
 
@@ -1451,25 +1451,25 @@ public:
     Get Email priority
 
     @return number represents Email priority (1 for highest, 3 for normal, 5 for low priority).
-  
+
   */
   uint8_t getPriority();
 
   /*
 
     Add one or more recipient
-    
+
     @param email - Recipient Email String of one recipient.
 
     To add multiple recipients, call addRecipient for each recipient.
-  
+
   */
   void addRecipient(const String &email);
 
   /*
 
     Remove recipient
-    
+
     @param email - Recipient Email String.
 
   */
@@ -1478,7 +1478,7 @@ public:
   /*
 
     Remove recipient
-    
+
     @param index - Index of recipients in Email object that previously added.
 
   */
@@ -1492,7 +1492,7 @@ public:
   /*
 
     Get one recipient
-    
+
     @param index - Index of recipients.
 
     @return Recipient Email String at the index.
@@ -1503,7 +1503,7 @@ public:
   /*
 
     Get number of recipients
-    
+
     @return Number of recipients.
 
   */
@@ -1512,7 +1512,7 @@ public:
   /*
 
     Set the Email subject
-    
+
     @param subject - The subject.
 
   */
@@ -1521,7 +1521,7 @@ public:
   /*
 
     Get the Email subject
-    
+
     @return Subject String.
 
   */
@@ -1530,17 +1530,22 @@ public:
   /*
 
     Set the Email message
-    
+
     @param message - The message can be in normal text or html format.
     @param htmlFormat - The html format flag, True for send the message as html format
-  
+
   */
   void setMessage(const String &message, bool htmlFormat);
+
+  void clrMessage(bool htmlFormat);
+
+  void addMessage(const String &message);
+
 
   /*
 
     Get the message
-    
+
     @return Message String.
 
   */
@@ -1549,7 +1554,7 @@ public:
   /*
 
     Determine  message is being send in html format
-    
+
     @return Boolean status.
 
   */
@@ -1558,7 +1563,7 @@ public:
   /*
 
     Add Carbon Copy (CC) Email
-    
+
     @param email - The CC Email String.
 
   */
@@ -1567,7 +1572,7 @@ public:
   /*
 
     Remove specified Carbon Copy (CC) Email
-    
+
     @param email - The CC Email String to remove.
 
   */
@@ -1576,9 +1581,9 @@ public:
   /*
 
     Remove specified Carbon Copy (CC) Email
-    
+
     @param index - The CC Email index to remove.
-  
+
   */
   void removeCC(uint8_t index);
 
@@ -1592,7 +1597,7 @@ public:
   /*
 
     Get Carbon Copy (CC) Email at specified index
-    
+
     @param index - The CC Email index to get.
     @return The CC Email string at the index.
 
@@ -1602,7 +1607,7 @@ public:
   /*
 
     Get the number of Carbon Copy (CC) Email
-    
+
     @return Number of CC Emails.
 
   */
@@ -1610,7 +1615,7 @@ public:
 
   /*
     Add Blind Carbon Copy (BCC) Email
-    
+
     @param email - The BCC Email String.
 
   */
@@ -1619,7 +1624,7 @@ public:
   /*
 
     Remove specified Blind Carbon Copy (BCC) Email
-    
+
     @param email - The BCC Email String to remove.
 
   */
@@ -1628,7 +1633,7 @@ public:
   /*
 
     Remove specified Blind Carbon Copy (BCC) Email
-    
+
     @param index - The BCC Email index to remove.
 
   */
@@ -1637,14 +1642,14 @@ public:
   /*
 
     Clear all Blind Carbon Copy (BCC) Emails
-    
+
   */
   void clearBCC();
 
   /*
 
     Get Blind Carbon Copy (BCC) Email at specified index
-    
+
     @param index - The BCC Email index to get.
 
     @return The BCC Email string at the index.
@@ -1655,7 +1660,7 @@ public:
   /*
 
     Get the number of Blind Carbon Copy (BCC) Email
-    
+
     @return Number of BCC Emails.
 
   */
@@ -1664,7 +1669,7 @@ public:
   /*
 
     Add attchement data (binary) from internal memory (flash or ram)
-    
+
     @param fileName - The file name String that recipient can be saved.
     @param mimeType - The MIME type of file (image/jpeg, image/png, text/plain...). Can be empty String.
     @param data - The byte array of data (uint8_t)
@@ -1676,7 +1681,7 @@ public:
   /*
 
     Remove specified attachment data
-    
+
     @param fileName - The file name of the attachment data to remove.
 
   */
@@ -1685,16 +1690,16 @@ public:
   /*
 
     Remove specified attachment data
-    
-    @param index - The index of the attachment data (count only data type attachment) to remove. 
-  
+
+    @param index - The index of the attachment data (count only data type attachment) to remove.
+
   */
   void removeAttachData(uint8_t index);
 
   /*
 
     Get the number of attachment data
-    
+
     @return Number of attach data.
 
   */
@@ -1703,7 +1708,7 @@ public:
   /*
 
     Add attchement file from SD card
-    
+
     @param fileName - The file name String that recipient can be saved.
     @param mimeType - The MIME type of file (image/jpeg, image/png, text/plain...). Can be omitted.
 
@@ -1713,7 +1718,7 @@ public:
   /*
 
     Remove specified attachment file from Email object
-    
+
     @param fileName - The file name of the attachment file to remove.
 
   */
@@ -1722,7 +1727,7 @@ public:
   /*
 
     Remove specified attachment file
-    
+
     @param index - The index of the attachment file (count only file type attachment) to remove.
 
   */
@@ -1731,7 +1736,7 @@ public:
   /*
 
     Set storage type for all attach files.
-    
+
     @param storageType - The storage type to read attach file, MailClientStorageType::SD or MailClientStorageType::SPIFFS
 
   */
@@ -1747,21 +1752,21 @@ public:
   /*
 
     Clear all attachment file.
-  
+
   */
   void clearAttachFile();
 
   /*
 
     Clear all attachments (both data and file type attachments).
-  
+
   */
   void clearAttachment();
 
   /*
 
     Get number of attachments (both data and file type attachments).
-    
+
     @return Number of all attachemnts.
 
   */
@@ -1770,46 +1775,46 @@ public:
   /*
 
     Add one or more custom message header field.
-    
+
     @param field - custom header String inform of FIELD: VALUE
 
     This header field will add to message header.
 
-  
+
   */
   void addCustomMessageHeader(const String &field);
 
   /*
 
     Remove one custom message header field that previously added.
-    
+
     @param field - custom custom message header field String to remove.
 
-  
+
   */
   void removeCustomMessageHeader(const String &field);
 
   /*
 
     Remove one custom message header field that previously added by its index.
-    
+
     @param index - custom message header field index (number) to remove.
 
-  
+
   */
   void removeCustomMessageHeader(uint8_t index);
 
   /*
 
     Clear all ccustom message header field that previously added.
-  
+
   */
   void clearCustomMessageHeader();
 
   /*
 
     Get the number of custom message header field that previously added.
-    
+
     @return Number of custom message header field.
 
   */
@@ -1818,7 +1823,7 @@ public:
   /*
 
     Get custom message header field that previously added by index
-    
+
     @param index - The custom message header field index to get.
 
     @return The custom message header field string at the index.
@@ -1826,7 +1831,7 @@ public:
   */
   String getCustomMessageHeader(uint8_t index);
 
-  
+
 
   /*
 
@@ -1838,9 +1843,9 @@ public:
   /*
 
     Set the Email sending status callback function to Email object.
-    
+
     @param sendCallback - The callback function that accept the sendStatusCallback param.
-  
+
   */
   void setSendCallback(sendStatusCallback sendCallback);
 
