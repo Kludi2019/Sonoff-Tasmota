@@ -583,13 +583,14 @@ uint16_t SendMail(char *buffer) {
   //smtpData.addAttachData("firebase_logo.png", "image/png", (uint8_t *)dummyImageData, sizeof dummyImageData);
 
 #if defined(ESP32) && defined(USE_WEBCAM)
-#define MAX_PICSTORE 4
+
   uint32_t cnt;
   uint8_t *buff;
-  uint32_t len;
-  for (cnt=0;cnt<MAX_PICSTORE;cnt++) {
-      uint32_t res=get_picstore(cnt,&buff,&len);
-      if (res) {
+  uint32_t len,picmax;
+  picmax=get_picstore(-1,0);
+  for (cnt=0;cnt<picmax;cnt++) {
+      uint32_t len=get_picstore(cnt,&buff);
+      if (len) {
         char str[12];
         sprintf(str,"img_%1d.jpg",cnt+1);
         smtpData.addAttachData(str, "image/jpg",buff,len);

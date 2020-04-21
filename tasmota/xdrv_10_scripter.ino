@@ -3556,6 +3556,16 @@ void HandleScriptTextareaConfiguration(void) {
 }
 
 #if defined(ESP32) && defined(USE_WEBCAM)
+
+uint8_t wc_stream;
+
+void Show_WC_Image(void) {
+  //WSContentSend_P("<img src=\"/wc.jpg?p=1\" alt=\"webcam image\" style=\"width:640px;height:480px\";>");
+  if (wc_stream&1) {
+    WSContentSend_P("<div><img src=\"http:////%s:81/cam.mjpeg\" style=\"width:640px;height:480px\"></div>",WiFi.localIP().toString().c_str());
+  }
+}
+
 void HandleImage(void) {
   if (!HttpCheckPriviledgedAccess()) { return; }
 
@@ -3578,6 +3588,25 @@ void HandleImage(void) {
   AddLog_P2(LOG_LEVEL_DEBUG, PSTR("sending image #: %d"), bnum+1);
 
 }
+
+
+void handleMjpeg(void) {
+  AddLog_P(LOG_LEVEL_INFO, "mjpeg");
+  /*
+  Serial.println("STREAM BEGIN");
+  WiFiClient client = server.client();
+  auto startTime = millis();
+
+  int res = esp32cam::Camera.streamMjpeg(client);
+  if (res <= 0) {
+    Serial.printf("STREAM ERROR %d\n", res);
+    return;
+  }
+  auto duration = millis() - startTime;
+  Serial.printf("STREAM END %dfrm %0.2ffps\n", res, 1000.0 * res / duration);
+*/
+}
+
 #endif
 
 void HandleScriptConfiguration(void) {
@@ -4619,7 +4648,7 @@ uint32_t cnt;
   nbuf[cnt]=0;
 }
 
-void ScriptWebShow(void) {
+void ScriptWebShow(char mc) {
   uint8_t web_script=Run_Scripter(">W",-2,0);
   if (web_script==99) {
     char line[128];
@@ -4646,12 +4675,16 @@ void ScriptWebShow(void) {
           cp++;
         }
         char *lin=line;
+        if (!mc && (*lin!='&')) {
+
         if (*lin=='@') {
           lin++;
           optflg=1;
         } else {
           optflg=0;
         }
+
+
         // check for input elements
         if (!strncmp(lin,"sl(",3)) {
           // insert slider sl(min max var left mid right)
@@ -4809,6 +4842,12 @@ void ScriptWebShow(void) {
             WSContentSend_PD(PSTR("<div>%s</div>"),tmp);
           } else {
             WSContentSend_PD(PSTR("{s}%s{e}"),tmp);
+          }
+        }
+        } else {
+          if (*lin==mc) {
+            Replace_Cmd_Vars(lin+1,tmp,sizeof(tmp));
+            WSContentSend_PD(PSTR("%s"),tmp);
           }
         }
       }
@@ -5039,6 +5078,13 @@ bool Xdrv10(uint8_t function)
         Script_Check_Hue(0);
 #endif
       }
+      //CamServer = new ESP8266WebServer(81);
+      //CamServer->begin();
+      //Serial.printf("caminit %d\n", (uint32_t)CamServer);
+
+      break;
+    case FUNC_LOOP:
+      //CamServer->handleClient();
       break;
     case FUNC_EVERY_100_MSECOND:
       ScripterEvery100ms();
@@ -5063,11 +5109,19 @@ bool Xdrv10(uint8_t function)
     case FUNC_WEB_ADD_BUTTON:
       WSContentSend_P(HTTP_BTN_MENU_RULES);
       break;
+    case FUNC_WEB_ADD_MAIN_BUTTON:
+      ScriptWebShow('&');
+#if defined(ESP32) && defined(USE_WEBCAM)
+      Show_WC_Image();
+#endif
+      break;
+
     case FUNC_WEB_ADD_HANDLER:
       Webserver->on("/" WEB_HANDLE_SCRIPT, HandleScriptConfiguration);
       Webserver->on("/ta",HTTP_POST, HandleScriptTextareaConfiguration);
 #if defined(ESP32) && defined(USE_WEBCAM)
       Webserver->on("/wc.jpg", HandleImage);
+      //CamServer->on("/cam.mjpeg", handleMjpeg);
 #endif
 
 #ifdef USE_SCRIPT_FATFS
@@ -5093,7 +5147,7 @@ bool Xdrv10(uint8_t function)
 #ifdef USE_SCRIPT_WEB_DISPLAY
     case FUNC_WEB_SENSOR:
       if (bitRead(Settings.rule_enabled, 0)) {
-        ScriptWebShow();
+        ScriptWebShow(0);
       }
       break;
 #endif //USE_SCRIPT_WEB_DISPLAY

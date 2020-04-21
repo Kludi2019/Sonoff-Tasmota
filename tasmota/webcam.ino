@@ -117,7 +117,7 @@ camera_config_t config;
   config.pin_pwdn = xpin; //PWDN_GPIO_NUM;
   xpin=pin[GPIO_WEBCAM_RESET_GPIO_NUM];
   if (xpin==99) xpin=-1;
-  config.pin_reset = xpin; //PWDN_GPIO_NUM;
+  config.pin_reset = xpin; //RESET_GPIO_NUM;
 #endif
 
   //ESP.getPsramSize()
@@ -141,6 +141,7 @@ camera_config_t config;
   }
 
   // stupid workaround camera diver eats up static ram should prefer SPIRAM
+  // so we steal static ram to force driver to alloc SPIRAM
   void *x=malloc(100000);
 
   esp_err_t err = esp_camera_init(&config);
@@ -151,7 +152,6 @@ camera_config_t config;
     AddLog_P2(LOG_LEVEL_INFO,"Camera init failed with error 0x%x", err);
     return 0;
   }
-
 
   sensor_t * wc_s = esp_camera_sensor_get();
   // initial sensors are flipped vertically and colors are a bit saturated
@@ -198,11 +198,10 @@ struct PICSTORE {
 } picstore[MAX_PICSTORE];
 
 
-uint32_t get_picstore(uint32_t num, uint8_t **buff,uint32_t *len) {
-  if (!picstore[num].len) return 0;
+uint32_t get_picstore(int32_t num, uint8_t **buff) {
+  if (num<0) return MAX_PICSTORE;
   *buff=picstore[num].buff;
-  *len=picstore[num].len;
-  return 1;
+  return picstore[num].len;
 }
 
 uint32_t wc_get_frame(int32_t bnum) {
