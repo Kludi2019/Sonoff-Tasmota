@@ -1423,7 +1423,7 @@ chknext:
           goto exit;
         }
         if (!strncmp(vname,"heap",4)) {
-          fvar=ESP.getFreeHeap();
+          fvar=ESP_getFreeHeap();
           goto exit;
         }
         if (!strncmp(vname,"hn(",3)) {

@@ -110,7 +110,7 @@ const uint16_t WS2812_MAX_LEDS = 512;       // Max number of LEDs
 const uint32_t PWM_RANGE = 1023;            // 255..1023 needs to be devisible by 256
 //const uint16_t PWM_FREQ = 1000;             // 100..1000 Hz led refresh
 //const uint16_t PWM_FREQ = 910;              // 100..1000 Hz led refresh (iTead value)
-const uint16_t PWM_FREQ = 880;              // 100..1000 Hz led refresh (BN-SZ01 value)
+const uint16_t PWM_FREQ = 223;              // 100..4000 Hz led refresh
 const uint16_t PWM_MAX = 4000;              // [PWM_MAX] Maximum frequency - Default: 4000
 const uint16_t PWM_MIN = 100;               // [PWM_MIN] Minimum frequency - Default: 100
                                             //    For Dimmers use double of your mains AC frequecy (100 for 50Hz and 120 for 60Hz)
@@ -315,7 +315,7 @@ enum DevGroupItem { DGR_ITEM_EOL, DGR_ITEM_STATUS,
                     DGR_ITEM_POWER, DGR_ITEM_DIMMER_RANGE,
                     // Add new 32-bit items before this line
                     DGR_ITEM_LAST_32BIT, DGR_ITEM_MAX_32BIT = 191,
-                    DGR_ITEM_EVENT,
+                    DGR_ITEM_EVENT, DGR_ITEM_COMMAND,
                     // Add new string items before this line
                     DGR_ITEM_LAST_STRING, DGR_ITEM_MAX_STRING = 223,
                     DGR_ITEM_LIGHT_CHANNELS };
