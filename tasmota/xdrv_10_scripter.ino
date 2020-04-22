@@ -62,6 +62,7 @@ keywords if then else endif, or, and are better readable for beginners (others m
 #define MAX_SCRIPT_SIZE MAX_RULE_SIZE*MAX_RULE_SETS
 
 
+
 uint32_t EncodeLightId(uint8_t relay_id);
 uint32_t DecodeLightId(uint32_t hue_id);
 
@@ -1927,6 +1928,12 @@ chknext:
             case 4:
               fvar=wc_get_height();
               break;
+            case 5:
+              { float fvar2;
+                lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
+                fvar=wc_set_streamserver(fvar2);
+              }
+              break;
             default:
               fvar=0;
           }
@@ -3555,59 +3562,6 @@ void HandleScriptTextareaConfiguration(void) {
   }
 }
 
-#if defined(ESP32) && defined(USE_WEBCAM)
-
-uint8_t wc_stream;
-
-void Show_WC_Image(void) {
-  //WSContentSend_P("<img src=\"/wc.jpg?p=1\" alt=\"webcam image\" style=\"width:640px;height:480px\";>");
-  if (wc_stream&1) {
-    WSContentSend_P("<div><img src=\"http:////%s:81/cam.mjpeg\" style=\"width:640px;height:480px\"></div>",WiFi.localIP().toString().c_str());
-  }
-}
-
-void HandleImage(void) {
-  if (!HttpCheckPriviledgedAccess()) { return; }
-
-  uint32_t bnum = Webserver->arg(F("p")).toInt();
-  if (bnum<1 || bnum>MAX_PICSTORE) bnum=1;
-  bnum--;
-  WiFiClient client = Webserver->client();
-  String response = "HTTP/1.1 200 OK\r\n";
-  response += "Content-disposition: inline; filename=capture.jpg\r\n";
-  response += "Content-type: image/jpeg\r\n\r\n";
-  Webserver->sendContent(response);
-
-  if (!picstore[bnum].len) {
-    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("no image #: %d"), bnum);
-    return;
-  }
-
-  client.write((char *)picstore[bnum].buff, picstore[bnum].len);
-
-  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("sending image #: %d"), bnum+1);
-
-}
-
-
-void handleMjpeg(void) {
-  AddLog_P(LOG_LEVEL_INFO, "mjpeg");
-  /*
-  Serial.println("STREAM BEGIN");
-  WiFiClient client = server.client();
-  auto startTime = millis();
-
-  int res = esp32cam::Camera.streamMjpeg(client);
-  if (res <= 0) {
-    Serial.printf("STREAM ERROR %d\n", res);
-    return;
-  }
-  auto duration = millis() - startTime;
-  Serial.printf("STREAM END %dfrm %0.2ffps\n", res, 1000.0 * res / duration);
-*/
-}
-
-#endif
 
 void HandleScriptConfiguration(void) {
 
@@ -5078,14 +5032,12 @@ bool Xdrv10(uint8_t function)
         Script_Check_Hue(0);
 #endif
       }
-      //CamServer = new ESP8266WebServer(81);
-      //CamServer->begin();
-      //Serial.printf("caminit %d\n", (uint32_t)CamServer);
-
       break;
+#if defined(ESP32) && defined(USE_WEBCAM)
     case FUNC_LOOP:
-      //CamServer->handleClient();
+      wc_loop();
       break;
+#endif
     case FUNC_EVERY_100_MSECOND:
       ScripterEvery100ms();
       break;
@@ -5111,9 +5063,6 @@ bool Xdrv10(uint8_t function)
       break;
     case FUNC_WEB_ADD_MAIN_BUTTON:
       ScriptWebShow('&');
-#if defined(ESP32) && defined(USE_WEBCAM)
-      Show_WC_Image();
-#endif
       break;
 
     case FUNC_WEB_ADD_HANDLER:
@@ -5121,7 +5070,6 @@ bool Xdrv10(uint8_t function)
       Webserver->on("/ta",HTTP_POST, HandleScriptTextareaConfiguration);
 #if defined(ESP32) && defined(USE_WEBCAM)
       Webserver->on("/wc.jpg", HandleImage);
-      //CamServer->on("/cam.mjpeg", handleMjpeg);
 #endif
 
 #ifdef USE_SCRIPT_FATFS

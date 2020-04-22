@@ -254,8 +254,146 @@ uint32_t wc_get_frame(int32_t bnum) {
   return  len;
 }
 
+bool HttpCheckPriviledgedAccess(bool);
+extern ESP8266WebServer *Webserver;
 
+void HandleImage(void) {
+  if (!HttpCheckPriviledgedAccess(true)) { return; }
 
+  uint32_t bnum = Webserver->arg(F("p")).toInt();
+  if (bnum<1 || bnum>MAX_PICSTORE) bnum=1;
+  bnum--;
+  WiFiClient client = Webserver->client();
+  String response = "HTTP/1.1 200 OK\r\n";
+  response += "Content-disposition: inline; filename=capture.jpg\r\n";
+  response += "Content-type: image/jpeg\r\n\r\n";
+  Webserver->sendContent(response);
+
+  if (!picstore[bnum].len) {
+    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("no image #: %d"), bnum);
+    return;
+  }
+
+  client.write((char *)picstore[bnum].buff, picstore[bnum].len);
+
+  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("sending image #: %d"), bnum+1);
+
+}
+
+ESP8266WebServer *CamServer;
+#define BOUNDARY "e8b8c539-047d-4777-a985-fbba6edff11e"
+void handleMjpeg(void) {
+  camera_fb_t *wc_fb;
+  size_t _jpg_buf_len = 0;
+  uint8_t * _jpg_buf = NULL;
+
+  AddLog_P(LOG_LEVEL_INFO, "stream");
+  WiFiClient client = CamServer->client();
+  client.print("HTTP/1.1 200 OK\r\n"
+  			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY "\r\n"
+  				"\r\n");
+
+  int nFrames;
+  for (nFrames = 0; nFrames < 10; ++nFrames) {
+
+    wc_fb = esp_camera_fb_get();
+    if (!wc_fb) return;
+
+    if (wc_fb->format!=PIXFORMAT_JPEG) {
+      bool jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
+      if (!jpeg_converted){
+        AddLog_P(LOG_LEVEL_INFO, "JPEG compression failed");
+        _jpg_buf_len = wc_fb->len;
+        _jpg_buf = wc_fb->buf;
+      }
+    } else {
+      _jpg_buf_len = wc_fb->len;
+      _jpg_buf = wc_fb->buf;
+    }
+
+    client.printf("Content-Type: image/jpeg\r\n"
+      "Content-Length: %d\r\n"
+        "\r\n", static_cast<int>(_jpg_buf_len));
+    client.write(_jpg_buf, _jpg_buf_len);
+    client.print("\r\n--" BOUNDARY "\r\n");
+    esp_camera_fb_return(wc_fb);
+  }
+  //client.write(wc_fb->buf, wc_fb->len);
+
+  /*
+  Serial.println("STREAM BEGIN");
+  WiFiClient client = server.client();
+  auto startTime = millis();
+
+  int res = esp32cam::Camera.streamMjpeg(client);
+  if (res <= 0) {
+    Serial.printf("STREAM ERROR %d\n", res);
+    return;
+  }
+  auto duration = millis() - startTime;
+  Serial.printf("STREAM END %dfrm %0.2ffps\n", res, 1000.0 * res / duration);
+*/
+AddLog_P(LOG_LEVEL_INFO, "stream exit");
+}
+
+/*
+int
+		CameraClass::streamMjpeg(Client& client, const StreamMjpegConfig& cfg)
+	{
+#define BOUNDARY "e8b8c539-047d-4777-a985-fbba6edff11e"
+		client.print("HTTP/1.1 200 OK\r\n"
+			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY "\r\n"
+				"\r\n");
+		auto lastCapture = millis();
+		int nFrames;
+		for (nFrames = 0; cfg.maxFrames < 0 || nFrames < cfg.maxFrames; ++nFrames) {
+			auto now = millis();
+			auto sinceLastCapture = now - lastCapture;
+			if (static_cast<int>(sinceLastCapture) < cfg.minInterval) {
+				delay(cfg.minInterval - sinceLastCapture);
+			}
+			lastCapture = millis();
+
+			auto frame = capture();
+			if (frame == nullptr) {
+				break;
+			}
+
+			client.printf("Content-Type: image/jpeg\r\n"
+				"Content-Length: %d\r\n"
+					"\r\n", static_cast<int>(frame->size()));
+			if (!frame->writeTo(client, cfg.frameTimeout)) {
+				break;
+			}
+			client.print("\r\n--" BOUNDARY "\r\n");
+		}
+		return nFrames;
+#undef BOUNDARY
+*/
+
+uint32_t wc_set_streamserver(uint32_t flag) {
+  if (flag) {
+    if (!CamServer) {
+      CamServer = new ESP8266WebServer(81);
+      CamServer->on("/", HandleRoot);
+      CamServer->on("/cam.mjpeg", handleMjpeg);
+      AddLog_P(LOG_LEVEL_INFO, "cam stream init");
+      CamServer->begin();
+    }
+  } else {
+    if (CamServer) {
+      CamServer->stop();
+      delete CamServer;
+      CamServer=NULL;
+      AddLog_P(LOG_LEVEL_INFO, "cam stream exit");
+    }
+  }
+  return 0;
+}
+
+void wc_loop(void) {
+  if (CamServer) CamServer->handleClient();
+}
 
 
 /*
