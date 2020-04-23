@@ -294,7 +294,7 @@ void handleMjpeg(void) {
   				"\r\n");
 
   int nFrames;
-  for (nFrames = 0; nFrames < 10; ++nFrames) {
+  for (nFrames = 0; nFrames < 25; ++nFrames) {
 
     wc_fb = esp_camera_fb_get();
     if (!wc_fb) return;
@@ -317,6 +317,7 @@ void handleMjpeg(void) {
     client.write(_jpg_buf, _jpg_buf_len);
     client.print("\r\n--" BOUNDARY "\r\n");
     esp_camera_fb_return(wc_fb);
+    delay(20);
   }
   //client.write(wc_fb->buf, wc_fb->len);
 
@@ -371,11 +372,22 @@ int
 #undef BOUNDARY
 */
 
+void CamHandleRoot(void) {
+  //CamServer->redirect("http://" + String(ip) + ":81/cam.mjpeg");
+  CamServer->sendHeader("Location", WiFi.localIP().toString() + ":81/cam.mjpeg");
+  CamServer->send(302, "", "");
+}
+
+
+
 uint32_t wc_set_streamserver(uint32_t flag) {
+
+  if (global_state.wifi_down) return 0;
+
   if (flag) {
     if (!CamServer) {
       CamServer = new ESP8266WebServer(81);
-      CamServer->on("/", HandleRoot);
+      CamServer->on("/", CamHandleRoot);
       CamServer->on("/cam.mjpeg", handleMjpeg);
       AddLog_P(LOG_LEVEL_INFO, "cam stream init");
       CamServer->begin();
@@ -395,6 +407,10 @@ void wc_loop(void) {
   if (CamServer) CamServer->handleClient();
 }
 
+void wc_pic_setup(void) {
+  Webserver->on("/wc.jpg", HandleImage);
+  Webserver->on("/wc.mjpeg", HandleImage);
+}
 
 /*
 typedef enum {

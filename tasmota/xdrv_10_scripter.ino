@@ -5069,7 +5069,7 @@ bool Xdrv10(uint8_t function)
       Webserver->on("/" WEB_HANDLE_SCRIPT, HandleScriptConfiguration);
       Webserver->on("/ta",HTTP_POST, HandleScriptTextareaConfiguration);
 #if defined(ESP32) && defined(USE_WEBCAM)
-      Webserver->on("/wc.jpg", HandleImage);
+      wc_pic_setup();
 #endif
 
 #ifdef USE_SCRIPT_FATFS
