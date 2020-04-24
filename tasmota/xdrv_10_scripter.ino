@@ -107,7 +107,12 @@ enum {SCRIPT_LOGLEVEL=1,SCRIPT_TELEPERIOD};
 #ifndef FAT_SCRIPT_SIZE
 #define FAT_SCRIPT_SIZE 4096
 #endif
+#ifdef ESP32
+#define FAT_SCRIPT_NAME "/script.txt"
+#else
 #define FAT_SCRIPT_NAME "script.txt"
+#endif
+
 #if USE_LONG_FILE_NAMES==1
 #warning ("FATFS long filenames not supported");
 #endif
@@ -266,7 +271,6 @@ void RulesTeleperiod(void) {
 #ifndef EEP_SCRIPT_SIZE
 #define EEP_SCRIPT_SIZE 4095
 #endif
-
 
 static Eeprom24C128_256 eeprom(EEPROM_ADDRESS);
 // eeprom.writeBytes(address, length, buffer);
@@ -1276,7 +1280,13 @@ chknext:
                 File entry=glob_script_mem.files[find].openNextFile();
                 if (entry) {
                   if (!reject((char*)entry.name())) {
-                    strcpy(str,entry.name());
+                    char *ep=(char*)entry.name();
+                    if (*ep=='/') ep++;
+                    char *lcp = strrchr(ep,'/');
+                    if (lcp) {
+                      ep=lcp+1;
+                    }
+                    strcpy(str,ep);
                     entry.close();
                     break;
                   }
@@ -1319,6 +1329,34 @@ chknext:
           len=0;
           goto exit;
         }
+#if defined(ESP32) && defined(USE_WEBCAM)
+        if (!strncmp(vname,"fwp(",4)) {
+          lp+=4;
+          lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
+          while (*lp==' ') lp++;
+          float fvar1;
+          lp=GetNumericResult(lp,OPER_EQU,&fvar1,0);
+          uint8_t ind=fvar1;
+          if (ind>=SFS_MAX) ind=SFS_MAX-1;
+          if (glob_script_mem.file_flags[ind].is_open) {
+            uint8_t *buff;
+            float maxps=get_picstore(-1,0);
+            if (fvar<1 || fvar>maxps) fvar=1;
+            uint32_t len=get_picstore(fvar-1, &buff);
+            if (len) {
+              fvar=glob_script_mem.files[ind].write(buff,len);
+            } else {
+              fvar=0;
+            }
+            //AddLog_P2(LOG_LEVEL_INFO, PSTR("picture save: %d"), len);
+          } else {
+            fvar=0;
+          }
+          lp++;
+          len=0;
+          goto exit;
+        }
+#endif
 #ifdef USE_SCRIPT_FATFS_EXT
         if (!strncmp(vname,"fe(",3)) {
           lp+=3;
@@ -1788,7 +1826,7 @@ chknext:
           goto exit;
         }
 #endif
-#ifdef USE_SML_SCRIPT_CMD
+#if defined(USE_SML_M) && defined (USE_SML_SCRIPT_CMD)
         if (!strncmp(vname,"sml(",4)) {
           lp+=4;
           float fvar1;
@@ -3341,6 +3379,7 @@ const char HTTP_FORM_SDC_HREF[] PROGMEM =
 
 uint8_t reject(char *name) {
 
+  while (*name=='/') name++;
   if (*name=='_') return 1;
   if (*name=='.') return 1;
 
@@ -3355,6 +3394,8 @@ uint8_t reject(char *name) {
   if (!strcasecmp(name,"FSEVEN~1")) return 1;
   if (!strcasecmp(name,"SYSTEM~1")) return 1;
 #endif
+
+  if (!strncasecmp(name,"System Volume",13)) return 1;
   return 0;
 }
 
@@ -3378,35 +3419,45 @@ void ListDir(char *path, uint8_t depth) {
       }
       WSContentSend_P(HTTP_FORM_SDC_DIRd,npath,path,"..");
     }
+    char *ep;
     while (true) {
       File entry=dir.openNextFile();
       if (!entry) {
         break;
       }
+      // esp32 returns path here, shorten to filename
+      ep=(char*)entry.name();
+      if (*ep=='/') ep++;
+      char *lcp = strrchr(ep,'/');
+      if (lcp) {
+        ep=lcp+1;
+      }
+      //AddLog_P2(LOG_LEVEL_INFO, PSTR("entry: %s"),ep);
+
       char *pp=path;
       if (!*(pp+1)) pp++;
       char *cp=name;
       // osx formatted disks contain a lot of stuff we dont want
-      if (reject((char*)entry.name())) goto fclose;
+      if (reject((char*)ep)) goto fclose;
 
       for (uint8_t cnt=0;cnt<depth;cnt++) {
         *cp++='-';
       }
       // unfortunately no time date info in class File
-      sprintf(cp,format,entry.name());
+      sprintf(cp,format,ep);
       if (entry.isDirectory()) {
-        snprintf_P(npath,sizeof(npath),HTTP_FORM_SDC_HREF,WiFi.localIP().toString().c_str(),pp,entry.name());
-        WSContentSend_P(HTTP_FORM_SDC_DIRd,npath,entry.name(),name);
+        snprintf_P(npath,sizeof(npath),HTTP_FORM_SDC_HREF,WiFi.localIP().toString().c_str(),pp,ep);
+        WSContentSend_P(HTTP_FORM_SDC_DIRd,npath,ep,name);
         uint8_t plen=strlen(path);
         if (plen>1) {
           strcat(path,"/");
         }
-        strcat(path,entry.name());
+        strcat(path,ep);
         ListDir(path,depth+4);
         path[plen]=0;
       } else {
-          snprintf_P(npath,sizeof(npath),HTTP_FORM_SDC_HREF,WiFi.localIP().toString().c_str(),pp,entry.name());
-          WSContentSend_P(HTTP_FORM_SDC_DIRb,npath,entry.name(),name,entry.size());
+          snprintf_P(npath,sizeof(npath),HTTP_FORM_SDC_HREF,WiFi.localIP().toString().c_str(),pp,ep);
+          WSContentSend_P(HTTP_FORM_SDC_DIRb,npath,ep,name,entry.size());
       }
       fclose:
       entry.close();
@@ -3664,19 +3715,17 @@ void ScriptSaveSettings(void) {
 
     strlcpy(glob_script_mem.script_ram,str.c_str(), glob_script_mem.script_size);
 
-#ifdef USE_24C256
-#ifndef USE_SCRIPT_FATFS
+#if defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
     if (glob_script_mem.flags&1) {
       EEP_WRITE(0,EEP_SCRIPT_SIZE,glob_script_mem.script_ram);
     }
 #endif
-#endif
 
-#ifdef USE_SCRIPT_FATFS
+#if !defined(USE_24C256) && defined(USE_SCRIPT_FATFS)
     if (glob_script_mem.flags&1) {
       SD.remove(FAT_SCRIPT_NAME);
       File file=SD.open(FAT_SCRIPT_NAME,FILE_WRITE);
-      file.write(glob_script_mem.script_ram,FAT_SCRIPT_SIZE);
+      file.write((const uint8_t*)glob_script_mem.script_ram,FAT_SCRIPT_SIZE);
       file.close();
     }
 #endif
@@ -4970,6 +5019,11 @@ bool Xdrv10(uint8_t function)
 #endif
 
 #ifdef USE_SCRIPT_FATFS
+#ifdef ESP32
+      if ((pin[GPIO_SSPI_MOSI]<99) && (pin[GPIO_SSPI_MISO]<99) && (pin[GPIO_SSPI_SCLK]<99)) {
+        SPI.begin(pin[GPIO_SSPI_SCLK],pin[GPIO_SSPI_MISO],pin[GPIO_SSPI_MOSI], -1);
+      }
+#endif
       if (SD.begin(USE_SCRIPT_FATFS)) {
         glob_script_mem.script_sd_found=1;
         char *script;
