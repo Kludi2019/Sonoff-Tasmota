@@ -142,8 +142,10 @@ camera_config_t config;
 
   // stupid workaround camera diver eats up static ram should prefer SPIRAM
   // so we steal static ram to force driver to alloc SPIRAM
-//  void *x=malloc(100000);
-void *x=0;
+  //ESP.getMaxAllocHeap()
+
+  void *x=malloc(70000);
+//void *x=0;
 
   esp_err_t err = esp_camera_init(&config);
 

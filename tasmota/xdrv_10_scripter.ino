@@ -1192,7 +1192,13 @@ chknext:
                   glob_script_mem.file_flags[cnt].is_dir=0;
                 }
               }
-              else glob_script_mem.files[cnt]=SD.open(str,FILE_WRITE);
+              else {
+                if (mode==1) {
+                  glob_script_mem.files[cnt]=SD.open(str,FILE_WRITE);
+                } else {
+                  glob_script_mem.files[cnt]=SD.open(str,FILE_APPEND);
+                }
+              }
               if (glob_script_mem.files[cnt]) {
                 fvar=cnt;
                 glob_script_mem.file_flags[cnt].is_open=1;
@@ -1344,6 +1350,7 @@ chknext:
             if (fvar<1 || fvar>maxps) fvar=1;
             uint32_t len=get_picstore(fvar-1, &buff);
             if (len) {
+              //glob_script_mem.files[ind].seek(0,SeekEnd);
               fvar=glob_script_mem.files[ind].write(buff,len);
             } else {
               fvar=0;
