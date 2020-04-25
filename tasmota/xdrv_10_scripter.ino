@@ -129,9 +129,6 @@ enum {SCRIPT_LOGLEVEL=1,SCRIPT_TELEPERIOD};
 #define FAT_SCRIPT_NAME "script.txt"
 #endif
 
-#if USE_LONG_FILE_NAMES==1
-#warning ("FATFS long filenames not supported");
-#endif
 #if USE_STANDARD_SPI_LIBRARY==0
 #warning ("FATFS standard spi should be used");
 #endif
