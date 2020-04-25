@@ -103,7 +103,23 @@ enum {SCRIPT_LOGLEVEL=1,SCRIPT_TELEPERIOD};
 
 #ifdef USE_SCRIPT_FATFS
 #include <SPI.h>
+
+//#define USE_MMC
+
+#ifdef USE_MMC
+#include <SD_MMC.h>
+#define FS_USED SD_MMC
+#else
 #include <SD.h>
+#define FS_USED SD
+#endif
+
+#ifndef ESP32
+#undef FILE_WRITE
+#define FILE_WRITE (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT)
+#define FILE_APPEND (sdfat::O_READ | sdfat::O_WRITE | sdfat::O_CREAT | sdfat::O_APPEND)
+#endif
+
 #ifndef FAT_SCRIPT_SIZE
 #define FAT_SCRIPT_SIZE 4096
 #endif
@@ -593,7 +609,11 @@ char *script;
 
 #ifdef USE_SCRIPT_FATFS
     if (!glob_script_mem.script_sd_found) {
-      if (SD.begin(USE_SCRIPT_FATFS)) {
+#ifdef USE_MMC
+      if (FS_USED.begin()) {
+#else
+      if (FS_USED.begin(USE_SCRIPT_FATFS)) {
+#endif
         glob_script_mem.script_sd_found=1;
       } else {
         glob_script_mem.script_sd_found=0;
@@ -1178,13 +1198,29 @@ chknext:
           char str[SCRIPT_MAXSSIZE];
           lp=GetStringResult(lp,OPER_EQU,str,0);
           while (*lp==' ') lp++;
-          lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
-          uint8_t mode=fvar;
+          uint8_t mode=0;
+          if ((*lp=='r') || (*lp=='w') || (*lp=='a')) {
+            switch (*lp) {
+              case 'r':
+                mode=0;
+                break;
+              case 'w':
+                mode=1;
+                break;
+              case 'a':
+                mode=2;
+                break;
+            }
+            lp++;
+          } else {
+            lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
+            mode=fvar;
+          }
           fvar=-1;
           for (uint8_t cnt=0;cnt<SFS_MAX;cnt++) {
             if (!glob_script_mem.file_flags[cnt].is_open) {
               if (mode==0) {
-                glob_script_mem.files[cnt]=SD.open(str,FILE_READ);
+                glob_script_mem.files[cnt]=FS_USED.open(str,FILE_READ);
                 if (glob_script_mem.files[cnt].isDirectory()) {
                   glob_script_mem.files[cnt].rewindDirectory();
                   glob_script_mem.file_flags[cnt].is_dir=1;
@@ -1194,9 +1230,9 @@ chknext:
               }
               else {
                 if (mode==1) {
-                  glob_script_mem.files[cnt]=SD.open(str,FILE_WRITE);
+                  glob_script_mem.files[cnt]=FS_USED.open(str,FILE_WRITE);
                 } else {
-                  glob_script_mem.files[cnt]=SD.open(str,FILE_APPEND);
+                  glob_script_mem.files[cnt]=FS_USED.open(str,FILE_APPEND);
                 }
               }
               if (glob_script_mem.files[cnt]) {
@@ -1330,7 +1366,7 @@ chknext:
           lp+=3;
           char str[glob_script_mem.max_ssize+1];
           lp=GetStringResult(lp,OPER_EQU,str,0);
-          SD.remove(str);
+          FS_USED.remove(str);
           lp++;
           len=0;
           goto exit;
@@ -1370,7 +1406,7 @@ chknext:
           char str[glob_script_mem.max_ssize+1];
           lp=GetStringResult(lp,OPER_EQU,str,0);
           // execute script
-          File ef=SD.open(str);
+          File ef=FS_USED.open(str);
           if (ef) {
             uint16_t fsiz=ef.size();
             if (fsiz<2048) {
@@ -1392,7 +1428,7 @@ chknext:
           lp+=4;
           char str[glob_script_mem.max_ssize+1];
           lp=GetStringResult(lp,OPER_EQU,str,0);
-          fvar=SD.mkdir(str);
+          fvar=FS_USED.mkdir(str);
           lp++;
           len=0;
           goto exit;
@@ -1401,7 +1437,7 @@ chknext:
           lp+=4;
           char str[glob_script_mem.max_ssize+1];
           lp=GetStringResult(lp,OPER_EQU,str,0);
-          fvar=SD.rmdir(str);
+          fvar=FS_USED.rmdir(str);
           lp++;
           len=0;
           goto exit;
@@ -1410,7 +1446,7 @@ chknext:
           lp+=3;
           char str[glob_script_mem.max_ssize+1];
           lp=GetStringResult(lp,OPER_EQU,str,0);
-          if (SD.exists(str)) fvar=1;
+          if (FS_USED.exists(str)) fvar=1;
           else fvar=0;
           lp++;
           len=0;
@@ -2807,8 +2843,24 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
               lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
               int8_t pinnr=fvar;
               SCRIPT_SKIP_SPACES
-              lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
-              int8_t mode=fvar;
+              uint8_t mode=0;
+              if ((*lp=='I') || (*lp=='O') || (*lp=='P')) {
+                switch (*lp) {
+                  case 'I':
+                    mode=0;
+                    break;
+                  case 'O':
+                    mode=1;
+                    break;
+                  case 'P':
+                    mode=2;
+                    break;
+                }
+                lp++;
+              } else {
+                lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
+                mode=fvar;
+              }
               uint8_t pm=0;
               if (mode==0) pm=INPUT;
               if (mode==1) pm=OUTPUT;
@@ -3363,7 +3415,7 @@ const char HTTP_FORM_FILE_UPGb[] PROGMEM =
 const char HTTP_FORM_SDC_DIRa[] PROGMEM =
 "<div style='text-align:left'>";
 const char HTTP_FORM_SDC_DIRb[] PROGMEM =
- "<pre><a href='%s' file='%s'>%s</a>    %d</pre>";
+ "<pre><a href='%s' file='%s'>%s</a>    %8d - %s</pre>";
 const char HTTP_FORM_SDC_DIRd[] PROGMEM =
 "<pre><a href='%s' file='%s'>%s</a></pre>";
 const char HTTP_FORM_SDC_DIRc[] PROGMEM =
@@ -3412,7 +3464,7 @@ void ListDir(char *path, uint8_t depth) {
   char format[12];
   sprintf(format,"%%-%ds",24-depth);
 
-  File dir=SD.open(path);
+  File dir=FS_USED.open(path);
   if (dir) {
     dir.rewindDirectory();
     if (strlen(path)>1) {
@@ -3440,6 +3492,9 @@ void ListDir(char *path, uint8_t depth) {
         ep=lcp+1;
       }
       //AddLog_P2(LOG_LEVEL_INFO, PSTR("entry: %s"),ep);
+      time_t tm=entry.getLastWrite();
+      char tstr[22];
+      strftime(tstr, 20, "%H:%M:%S - %d-%m-%Y ", localtime(&tm));
 
       char *pp=path;
       if (!*(pp+1)) pp++;
@@ -3451,6 +3506,7 @@ void ListDir(char *path, uint8_t depth) {
         *cp++='-';
       }
       // unfortunately no time date info in class File
+
       sprintf(cp,format,ep);
       if (entry.isDirectory()) {
         snprintf_P(npath,sizeof(npath),HTTP_FORM_SDC_HREF,WiFi.localIP().toString().c_str(),pp,ep);
@@ -3464,7 +3520,7 @@ void ListDir(char *path, uint8_t depth) {
         path[plen]=0;
       } else {
           snprintf_P(npath,sizeof(npath),HTTP_FORM_SDC_HREF,WiFi.localIP().toString().c_str(),pp,ep);
-          WSContentSend_P(HTTP_FORM_SDC_DIRb,npath,ep,name,entry.size());
+          WSContentSend_P(HTTP_FORM_SDC_DIRb,npath,ep,name,entry.size(),tstr);
       }
       fclose:
       entry.close();
@@ -3531,8 +3587,8 @@ void script_upload(void) {
   if (upload.status == UPLOAD_FILE_START) {
     char npath[48];
     sprintf(npath,"%s/%s",path,upload.filename.c_str());
-    SD.remove(npath);
-    upload_file=SD.open(npath,FILE_WRITE);
+    FS_USED.remove(npath);
+    upload_file=FS_USED.open(npath,FILE_WRITE);
     if (!upload_file) Web.upload_error=1;
   } else if(upload.status == UPLOAD_FILE_WRITE) {
     if (upload_file) upload_file.write(upload.buf,upload.currentSize);
@@ -3551,12 +3607,12 @@ uint8_t DownloadFile(char *file) {
   File download_file;
   WiFiClient download_Client;
 
-    if (!SD.exists(file)) {
+    if (!FS_USED.exists(file)) {
       AddLog_P(LOG_LEVEL_INFO,PSTR("file not found"));
       return 0;
     }
 
-    download_file=SD.open(file,FILE_READ);
+    download_file=FS_USED.open(file,FILE_READ);
     if (!download_file) {
       AddLog_P(LOG_LEVEL_INFO,PSTR("could not open file"));
       return 0;
@@ -3730,8 +3786,8 @@ void ScriptSaveSettings(void) {
 
 #if !defined(USE_24C256) && defined(USE_SCRIPT_FATFS)
     if (glob_script_mem.flags&1) {
-      SD.remove(FAT_SCRIPT_NAME);
-      File file=SD.open(FAT_SCRIPT_NAME,FILE_WRITE);
+      FS_USED.remove(FAT_SCRIPT_NAME);
+      File file=FS_USED.open(FAT_SCRIPT_NAME,FILE_WRITE);
       file.write((const uint8_t*)glob_script_mem.script_ram,FAT_SCRIPT_SIZE);
       file.close();
     }
@@ -5026,20 +5082,28 @@ bool Xdrv10(uint8_t function)
 #endif
 
 #ifdef USE_SCRIPT_FATFS
+
+#ifdef USE_MMC
+      if (FS_USED.begin()) {
+#else
+
 #ifdef ESP32
       if ((pin[GPIO_SSPI_MOSI]<99) && (pin[GPIO_SSPI_MISO]<99) && (pin[GPIO_SSPI_SCLK]<99)) {
         SPI.begin(pin[GPIO_SSPI_SCLK],pin[GPIO_SSPI_MISO],pin[GPIO_SSPI_MOSI], -1);
       }
 #endif
-      if (SD.begin(USE_SCRIPT_FATFS)) {
+      if (FS_USED.begin(USE_SCRIPT_FATFS)) {
+#endif
+
+        //FS_USED.dateTimeCallback(dateTime);
         glob_script_mem.script_sd_found=1;
         char *script;
         script=(char*)calloc(FAT_SCRIPT_SIZE+4,1);
         if (!script) break;
         glob_script_mem.script_ram=script;
         glob_script_mem.script_size=FAT_SCRIPT_SIZE;
-        if (SD.exists(FAT_SCRIPT_NAME)) {
-          File file=SD.open(FAT_SCRIPT_NAME,FILE_READ);
+        if (FS_USED.exists(FAT_SCRIPT_NAME)) {
+          File file=FS_USED.open(FAT_SCRIPT_NAME,FILE_READ);
           file.read((uint8_t*)script,FAT_SCRIPT_SIZE);
           file.close();
         }
@@ -5049,11 +5113,6 @@ bool Xdrv10(uint8_t function)
         glob_script_mem.script_pram_size=MAX_SCRIPT_SIZE;
 
         glob_script_mem.flags=1;
-
-#if defined(ARDUINO_ESP8266_RELEASE_2_3_0) || defined(ARDUINO_ESP8266_RELEASE_2_4_2)
-        // for unkonwn reasons is not defined in 2.52
-        SdFile::dateTimeCallback(dateTime);
-#endif
 
       } else {
         glob_script_mem.script_sd_found=0;
