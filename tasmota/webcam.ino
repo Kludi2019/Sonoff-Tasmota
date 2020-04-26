@@ -144,8 +144,8 @@ camera_config_t config;
   // so we steal static ram to force driver to alloc SPIRAM
   //ESP.getMaxAllocHeap()
 
-  void *x=malloc(70000);
-//void *x=0;
+//  void *x=malloc(70000);
+void *x=0;
 
   esp_err_t err = esp_camera_init(&config);
 
@@ -207,6 +207,28 @@ uint32_t get_picstore(int32_t num, uint8_t **buff) {
   return picstore[num].len;
 }
 
+uint32_t wc_get_jpeg(uint8_t **buff) {
+size_t _jpg_buf_len = 0;
+uint8_t * _jpg_buf = NULL;
+camera_fb_t *wc_fb;
+  wc_fb = esp_camera_fb_get();
+  if (!wc_fb) return 0;
+  if (wc_fb->format!=PIXFORMAT_JPEG) {
+    bool jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
+    if (!jpeg_converted){
+        _jpg_buf_len = wc_fb->len;
+        _jpg_buf = wc_fb->buf;
+    }
+  } else {
+    _jpg_buf_len = wc_fb->len;
+    _jpg_buf = wc_fb->buf;
+  }
+  esp_camera_fb_return(wc_fb);
+  *buff=_jpg_buf;
+  return _jpg_buf_len;
+}
+
+
 uint32_t wc_get_frame(int32_t bnum) {
   size_t _jpg_buf_len = 0;
   uint8_t * _jpg_buf = NULL;
@@ -264,20 +286,28 @@ void HandleImage(void) {
   if (!HttpCheckPriviledgedAccess(true)) { return; }
 
   uint32_t bnum = Webserver->arg(F("p")).toInt();
-  if (bnum<1 || bnum>MAX_PICSTORE) bnum=1;
-  bnum--;
+  if (bnum<0 || bnum>MAX_PICSTORE) bnum=1;
   WiFiClient client = Webserver->client();
   String response = "HTTP/1.1 200 OK\r\n";
   response += "Content-disposition: inline; filename=capture.jpg\r\n";
   response += "Content-type: image/jpeg\r\n\r\n";
   Webserver->sendContent(response);
 
-  if (!picstore[bnum].len) {
-    AddLog_P2(LOG_LEVEL_DEBUG, PSTR("no image #: %d"), bnum);
-    return;
+  if (!bnum) {
+    uint8_t *buff;
+    uint32_t len;
+    len=wc_get_jpeg(&buff);
+    if (len) {
+      client.write(buff,len);
+    }
+  } else {
+    bnum--;
+    if (!picstore[bnum].len) {
+      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("no image #: %d"), bnum);
+      return;
+    }
+    client.write((char *)picstore[bnum].buff, picstore[bnum].len);
   }
-
-  client.write((char *)picstore[bnum].buff, picstore[bnum].len);
 
   AddLog_P2(LOG_LEVEL_DEBUG, PSTR("sending image #: %d"), bnum+1);
 

@@ -5093,6 +5093,7 @@ bool Xdrv10(uint8_t function)
 #endif
 
         //FS_USED.dateTimeCallback(dateTime);
+
         glob_script_mem.script_sd_found=1;
         char *script;
         script=(char*)calloc(FAT_SCRIPT_SIZE+4,1);
