@@ -416,7 +416,7 @@ SMTPData smtpData;
 
 //Callback function to get the Email sending status
 //void sendCallback(SendStatus info);
-#define DEBUG_EMAIL_PORT
+//#define DEBUG_EMAIL_PORT
 
 uint16_t SendMail(char *buffer) {
   char *params,*oparams;
@@ -582,22 +582,6 @@ uint16_t SendMail(char *buffer) {
   //Data from internal memory
   //smtpData.addAttachData("firebase_logo.png", "image/png", (uint8_t *)dummyImageData, sizeof dummyImageData);
 
-#if defined(ESP32) && defined(USE_WEBCAM)
-
-  uint32_t cnt;
-  uint8_t *buff;
-  uint32_t len,picmax;
-  picmax=get_picstore(-1,0);
-  for (cnt=0;cnt<picmax;cnt++) {
-      uint32_t len=get_picstore(cnt,&buff);
-      if (len) {
-        char str[12];
-        sprintf(str,"img_%1d.jpg",cnt+1);
-        smtpData.addAttachData(str, "image/jpg",buff,len);
-      }
-  }
-#endif
-
   //Add attach files from SD card
   //Comment these two lines, if no SD card connected
   //Two files that previousely created.
@@ -613,9 +597,10 @@ uint16_t SendMail(char *buffer) {
   //smtpData.addCustomMessageHeader("Message-ID: <abcde.fghij@gmail.com>");
 
   //Set the storage types to read the attach files (SD is default)
-  smtpData.setFileStorageType(MailClientStorageType::SPIFFS);
-  //smtpData.setFileStorageType(MailClientStorageType::SD);
-
+  //smtpData.setFileStorageType(MailClientStorageType::SPIFFS);
+#if defined (USE_SCRIPT) && defined(USE_SCRIPT_FATFS)
+  smtpData.setFileStorageType(MailClientStorageType::SD);
+#endif
   //smtpData.setSendCallback(sendCallback);
 
   //Start sending Email, can be set callback function to track the status
@@ -636,7 +621,28 @@ uint16_t SendMail(char *buffer) {
 
 
 void send_message_txt(char *txt) {
-  smtpData.addMessage(txt);
+  if (*txt=='&') {
+    txt++;
+    smtpData.addAttachFile(txt);
+  } else if (*txt=='$') {
+    txt++;
+#if defined(ESP32) && defined(USE_WEBCAM)
+    uint32_t cnt;
+    uint8_t *buff;
+    uint32_t len,picmax;
+    picmax=get_picstore(-1,0);
+    cnt=*txt&7;
+    if (cnt<1 || cnt>picmax) cnt=1;
+    len=get_picstore(cnt-1,&buff);
+    if (len) {
+      char str[12];
+      sprintf(str,"img_%1d.jpg",cnt+1);
+      smtpData.addAttachData(str, "image/jpg",buff,len);
+    }
+#endif
+  } else {
+    smtpData.addMessage(txt);
+  }
 }
 
 /*

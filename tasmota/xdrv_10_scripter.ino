@@ -3412,7 +3412,7 @@ const char HTTP_FORM_FILE_UPGb[] PROGMEM =
 const char HTTP_FORM_SDC_DIRa[] PROGMEM =
 "<div style='text-align:left'>";
 const char HTTP_FORM_SDC_DIRb[] PROGMEM =
- "<pre><a href='%s' file='%s'>%s</a>    %8d - %s</pre>";
+ "<pre><a href='%s' file='%s'>%s</a>     %s : %8d</pre>";
 const char HTTP_FORM_SDC_DIRd[] PROGMEM =
 "<pre><a href='%s' file='%s'>%s</a></pre>";
 const char HTTP_FORM_SDC_DIRc[] PROGMEM =
@@ -3490,8 +3490,8 @@ void ListDir(char *path, uint8_t depth) {
       }
       //AddLog_P2(LOG_LEVEL_INFO, PSTR("entry: %s"),ep);
       time_t tm=entry.getLastWrite();
-      char tstr[22];
-      strftime(tstr, 20, "%H:%M:%S - %d-%m-%Y ", localtime(&tm));
+      char tstr[24];
+      strftime(tstr, 22, "%d-%m-%Y - %H:%M:%S ", localtime(&tm));
 
       char *pp=path;
       if (!*(pp+1)) pp++;
@@ -3502,7 +3502,6 @@ void ListDir(char *path, uint8_t depth) {
       for (uint8_t cnt=0;cnt<depth;cnt++) {
         *cp++='-';
       }
-      // unfortunately no time date info in class File
 
       sprintf(cp,format,ep);
       if (entry.isDirectory()) {
@@ -3517,7 +3516,7 @@ void ListDir(char *path, uint8_t depth) {
         path[plen]=0;
       } else {
           snprintf_P(npath,sizeof(npath),HTTP_FORM_SDC_HREF,WiFi.localIP().toString().c_str(),pp,ep);
-          WSContentSend_P(HTTP_FORM_SDC_DIRb,npath,ep,name,entry.size(),tstr);
+          WSContentSend_P(HTTP_FORM_SDC_DIRb,npath,ep,name,tstr,entry.size());
       }
       fclose:
       entry.close();
@@ -4929,18 +4928,7 @@ void ScriptWebShow(char mc) {
 
 #ifdef USE_SENDMAIL
 
-
-
 void script_send_email_body(void(*func)(char *)) {
-
-  /*
-#ifdef ESP8266
-void script_send_email_body(BearSSL::WiFiClientSecure_light *client) {
-#else
-void script_send_email_body(WiFiClient *client) {
-#endif
-*/
-
 uint8_t msect=Run_Scripter(">m",-2,0);
   if (msect==99) {
     char line[128];

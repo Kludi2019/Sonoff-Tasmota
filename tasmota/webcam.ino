@@ -5,6 +5,7 @@
 
 //#define USE_TEMPLATE
 
+
 #ifndef USE_TEMPLATE
 
 #define PWDN_GPIO_NUM     32
@@ -37,13 +38,14 @@
 //#include "CRtspSession.h"
 
 
-camera_fb_t *wc_fb;
+
 uint8_t wc_up;
 uint16_t wc_width;
 uint16_t wc_height;
 
 uint32_t webcam_setup(void) {
 bool psram;
+camera_fb_t *wc_fb;
 
   if (wc_up) {
     return wc_up;
@@ -232,6 +234,7 @@ camera_fb_t *wc_fb;
 uint32_t wc_get_frame(int32_t bnum) {
   size_t _jpg_buf_len = 0;
   uint8_t * _jpg_buf = NULL;
+  camera_fb_t *wc_fb;
 
   if (bnum<0) {
     if (bnum<-MAX_PICSTORE) bnum=-1;
