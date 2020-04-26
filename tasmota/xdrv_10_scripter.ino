@@ -5025,9 +5025,11 @@ void ScriptJsonAppend(void) {
 }
 #endif //USE_SCRIPT_JSON_EXPORT
 
-void CmndEvent(void) {
 
+bool RulesProcessEvent(char *json_event) {
+  if (bitRead(Settings.rule_enabled, 0)) Run_Scripter(">E",2,json_event);
 }
+
 /*********************************************************************************************\
  * Interface
 \*********************************************************************************************/
