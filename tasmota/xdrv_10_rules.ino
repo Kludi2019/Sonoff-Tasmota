@@ -1965,6 +1965,5 @@ bool Xdrv10(uint8_t function)
   }
   return result;
 }
-
 #endif  // Do not USE_SCRIPT
 #endif  // USE_RULES

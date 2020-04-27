@@ -42,10 +42,13 @@
 uint8_t wc_up;
 uint16_t wc_width;
 uint16_t wc_height;
+uint8_t wc_stream_active;
 
 uint32_t webcam_setup(void) {
 bool psram;
 camera_fb_t *wc_fb;
+
+  wc_stream_active=0;
 
   if (wc_up) {
     return wc_up;
@@ -175,6 +178,7 @@ void *x=0;
   //if (s_state)
   //wc_width=s_state->width;
 
+
   wc_up=1;
 
   if (psram) {
@@ -200,8 +204,10 @@ uint32_t wc_get_height(void) {
 struct PICSTORE {
   uint8_t *buff;
   uint32_t len;
-} picstore[MAX_PICSTORE];
+};
 
+struct PICSTORE picstore[MAX_PICSTORE];
+struct PICSTORE tmp_picstore;
 
 uint32_t get_picstore(int32_t num, uint8_t **buff) {
   if (num<0) return MAX_PICSTORE;
@@ -234,7 +240,7 @@ camera_fb_t *wc_fb;
 uint32_t wc_get_frame(int32_t bnum) {
   size_t _jpg_buf_len = 0;
   uint8_t * _jpg_buf = NULL;
-  camera_fb_t *wc_fb;
+  camera_fb_t *wc_fb=0;
 
   if (bnum<0) {
     if (bnum<-MAX_PICSTORE) bnum=-1;
@@ -245,9 +251,16 @@ uint32_t wc_get_frame(int32_t bnum) {
     return 0;
   }
 
+  if (bnum&0x10) {
+    bnum&=0xf;
+    _jpg_buf=tmp_picstore.buff;
+    _jpg_buf_len=tmp_picstore.len;
+    if (!_jpg_buf_len) return 0;
+    goto pcopy;
+  }
+
   wc_fb = esp_camera_fb_get();
   if (!wc_fb) return 0;
-  uint32_t len=wc_fb->len;
 
   if (!bnum) {
     wc_width = wc_fb->width;
@@ -256,30 +269,32 @@ uint32_t wc_get_frame(int32_t bnum) {
     return 0;
   }
 
+  if (wc_fb->format!=PIXFORMAT_JPEG) {
+    bool jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
+    if (!jpeg_converted){
+        //Serial.println("JPEG compression failed");
+        _jpg_buf_len = wc_fb->len;
+        _jpg_buf = wc_fb->buf;
+    }
+  } else {
+    _jpg_buf_len = wc_fb->len;
+    _jpg_buf = wc_fb->buf;
+  }
+
+pcopy:
   if (bnum<1 || bnum>MAX_PICSTORE) bnum=1;
   bnum--;
   if (picstore[bnum].buff) free(picstore[bnum].buff);
-  picstore[bnum].buff = (uint8_t *)heap_caps_malloc(len+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+  picstore[bnum].buff = (uint8_t *)heap_caps_malloc(_jpg_buf_len+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (picstore[bnum].buff) {
-    if (wc_fb->format!=PIXFORMAT_JPEG) {
-      bool jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
-      if (!jpeg_converted){
-          //Serial.println("JPEG compression failed");
-          _jpg_buf_len = wc_fb->len;
-          _jpg_buf = wc_fb->buf;
-      }
-    } else {
-      _jpg_buf_len = wc_fb->len;
-      _jpg_buf = wc_fb->buf;
-    }
     memcpy(picstore[bnum].buff,_jpg_buf,_jpg_buf_len);
     picstore[bnum].len=_jpg_buf_len;
   } else {
     picstore[bnum].len=0;
   }
-  esp_camera_fb_return(wc_fb);
+  if (wc_fb) esp_camera_fb_return(wc_fb);
   if (!picstore[bnum].buff) return 0;
-  return  len;
+  return  _jpg_buf_len;
 }
 
 bool HttpCheckPriviledgedAccess(bool);
@@ -318,22 +333,32 @@ void HandleImage(void) {
 
 ESP8266WebServer *CamServer;
 #define BOUNDARY "e8b8c539-047d-4777-a985-fbba6edff11e"
+
+
+
 void handleMjpeg(void) {
   camera_fb_t *wc_fb;
   size_t _jpg_buf_len = 0;
   uint8_t * _jpg_buf = NULL;
 
-  AddLog_P(LOG_LEVEL_INFO, "stream");
   WiFiClient client = CamServer->client();
+
+  if (wc_stream_active) {
+    AddLog_P(LOG_LEVEL_INFO, "recursive call");
+    client.print("HTTP/1.1 200 OK\r\n");
+    return;
+  }
+
+  AddLog_P(LOG_LEVEL_INFO, "stream");
+
   client.print("HTTP/1.1 200 OK\r\n"
   			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY "\r\n"
   				"\r\n");
 
-  int nFrames;
-  for (nFrames = 0; nFrames < 25; ++nFrames) {
-
+  wc_stream_active=1;
+  while (1) {
     wc_fb = esp_camera_fb_get();
-    if (!wc_fb) return;
+    if (!wc_fb) break;
 
     if (wc_fb->format!=PIXFORMAT_JPEG) {
       bool jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
@@ -350,68 +375,43 @@ void handleMjpeg(void) {
     client.printf("Content-Type: image/jpeg\r\n"
       "Content-Length: %d\r\n"
         "\r\n", static_cast<int>(_jpg_buf_len));
-    client.write(_jpg_buf, _jpg_buf_len);
+    uint32_t tlen=client.write(_jpg_buf, _jpg_buf_len);
+    if (tlen!=_jpg_buf_len) {
+      esp_camera_fb_return(wc_fb);
+      break;
+    }
     client.print("\r\n--" BOUNDARY "\r\n");
+
+    if (tmp_picstore.buff) free(tmp_picstore.buff);
+    tmp_picstore.buff = (uint8_t *)heap_caps_malloc(_jpg_buf_len+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    if (tmp_picstore.buff) {
+      memcpy(tmp_picstore.buff,_jpg_buf,_jpg_buf_len);
+      tmp_picstore.len=_jpg_buf_len;
+    } else {
+      tmp_picstore.len=0;
+    }
     esp_camera_fb_return(wc_fb);
-    delay(20);
+    delay(0);
+    if (!client.connected()) break;
+    // multitask ???
+    loop();
+    if (!wc_stream_active) break;
+    //Serial.printf("loop %d\n",client.status());
+    //if (client.available()) {
+    //  char c = client.read();
+    //  Serial.print(c);
+    //}
   }
-  //client.write(wc_fb->buf, wc_fb->len);
-
-  /*
-  Serial.println("STREAM BEGIN");
-  WiFiClient client = server.client();
-  auto startTime = millis();
-
-  int res = esp32cam::Camera.streamMjpeg(client);
-  if (res <= 0) {
-    Serial.printf("STREAM ERROR %d\n", res);
-    return;
-  }
-  auto duration = millis() - startTime;
-  Serial.printf("STREAM END %dfrm %0.2ffps\n", res, 1000.0 * res / duration);
-*/
-AddLog_P(LOG_LEVEL_INFO, "stream exit");
+  client.stop();
+  AddLog_P(LOG_LEVEL_INFO, "stream exit");
+  wc_stream_active=0;
 }
-
-/*
-int
-		CameraClass::streamMjpeg(Client& client, const StreamMjpegConfig& cfg)
-	{
-#define BOUNDARY "e8b8c539-047d-4777-a985-fbba6edff11e"
-		client.print("HTTP/1.1 200 OK\r\n"
-			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY "\r\n"
-				"\r\n");
-		auto lastCapture = millis();
-		int nFrames;
-		for (nFrames = 0; cfg.maxFrames < 0 || nFrames < cfg.maxFrames; ++nFrames) {
-			auto now = millis();
-			auto sinceLastCapture = now - lastCapture;
-			if (static_cast<int>(sinceLastCapture) < cfg.minInterval) {
-				delay(cfg.minInterval - sinceLastCapture);
-			}
-			lastCapture = millis();
-
-			auto frame = capture();
-			if (frame == nullptr) {
-				break;
-			}
-
-			client.printf("Content-Type: image/jpeg\r\n"
-				"Content-Length: %d\r\n"
-					"\r\n", static_cast<int>(frame->size()));
-			if (!frame->writeTo(client, cfg.frameTimeout)) {
-				break;
-			}
-			client.print("\r\n--" BOUNDARY "\r\n");
-		}
-		return nFrames;
-#undef BOUNDARY
-*/
 
 void CamHandleRoot(void) {
   //CamServer->redirect("http://" + String(ip) + ":81/cam.mjpeg");
   CamServer->sendHeader("Location", WiFi.localIP().toString() + ":81/cam.mjpeg");
   CamServer->send(302, "", "");
+  Serial.printf("WC root called");
 }
 
 
@@ -419,6 +419,8 @@ void CamHandleRoot(void) {
 uint32_t wc_set_streamserver(uint32_t flag) {
 
   if (global_state.wifi_down) return 0;
+
+  wc_stream_active=0;
 
   if (flag) {
     if (!CamServer) {
@@ -434,6 +436,7 @@ uint32_t wc_set_streamserver(uint32_t flag) {
       delete CamServer;
       CamServer=NULL;
       AddLog_P(LOG_LEVEL_INFO, "cam stream exit");
+
     }
   }
   return 0;
