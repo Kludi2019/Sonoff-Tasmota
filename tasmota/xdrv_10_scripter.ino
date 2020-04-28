@@ -4433,6 +4433,14 @@ void dateTime(uint16_t* date, uint16_t* time) {
 
 
 #ifdef SUPPORT_MQTT_EVENT
+
+#ifndef MQTT_EVENT_MSIZE
+#define MQTT_EVENT_MSIZE 256
+#endif
+#ifndef MQTT_EVENT_JSIZE
+#define MQTT_EVENT_JSIZE 400
+#endif
+
 /********************************************************************************************/
 /*
  * Script: Process received MQTT message.
@@ -4447,8 +4455,8 @@ bool ScriptMqttData(void)
 {
   bool serviced = false;
   //toLog(">>> 1");
-  toLog(XdrvMailbox.data);
-  if (XdrvMailbox.data_len < 1 || XdrvMailbox.data_len > 256) {
+  //toLog(XdrvMailbox.data);
+  if (XdrvMailbox.data_len < 1 || XdrvMailbox.data_len > MQTT_EVENT_MSIZE) {
     return false;
   }
   String sTopic = XdrvMailbox.topic;
@@ -4468,7 +4476,7 @@ bool ScriptMqttData(void)
       if (event_item.Key.length() == 0) {   //If did not specify Key
         value = sData;
       } else {      //If specified Key, need to parse Key/Value from JSON data
-        StaticJsonBuffer<400> jsonBuf;
+        StaticJsonBuffer<MQTT_EVENT_JSIZE> jsonBuf;
         JsonObject& jsonData = jsonBuf.parseObject(sData);
         String key1 = event_item.Key;
         String key2;
