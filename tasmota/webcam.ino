@@ -340,7 +340,7 @@ void handleMjpeg(void) {
     client = CamServer->client();
     AddLog_P(LOG_LEVEL_INFO, "create client");
   //}
-  wc_timer=10;
+//  wc_timer=10;
 }
 
 void handleMjpeg_task(void) {
@@ -350,10 +350,12 @@ void handleMjpeg_task(void) {
   //WiFiClient client = CamServer->client();
   uint32_t tlen;
 
+/*
   if (wc_timer) {
     wc_timer--;
     return;
   }
+*/
 
   if (!client.connected()) {
     wc_stream_active=0;
