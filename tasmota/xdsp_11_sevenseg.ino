@@ -239,6 +239,8 @@ void SevensegTime(boolean time_24)
   sevenseg.writeDisplay();
 }
 
+#endif  // USE_DISPLAY_MODES1TO5
+
 void SevensegRefresh(void)  // Every second
 {
   if (disp_power) {
@@ -259,7 +261,6 @@ void SevensegRefresh(void)  // Every second
     }
   }
 }
-#endif  // USE_DISPLAY_MODES1TO5
 
 /*********************************************************************************************\
  * Interface
@@ -286,9 +287,7 @@ bool Xdsp11(uint8_t function)
         SevensegClear();
         break;
       case FUNC_DISPLAY_EVERY_SECOND:
-#ifdef USE_DISPLAY_MODES1TO5
         SevensegRefresh();
-#endif
         break;
       case FUNC_DISPLAY_ONOFF:
       case FUNC_DISPLAY_POWER:

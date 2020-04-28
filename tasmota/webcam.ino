@@ -95,26 +95,26 @@ camera_config_t config;
 #define PCLK_GPIO_NUM     22
 */
 
-  config.pin_d0 = pin[GPIO_WEBCAM_Y2_GPIO_NUM];  //Y2_GPIO_NUM;
-  config.pin_d1 = pin[GPIO_WEBCAM_Y3_GPIO_NUM];  //Y3_GPIO_NUM;
-  config.pin_d2 = pin[GPIO_WEBCAM_Y4_GPIO_NUM];  //Y4_GPIO_NUM;
-  config.pin_d3 = pin[GPIO_WEBCAM_Y5_GPIO_NUM];  //Y5_GPIO_NUM;
-  config.pin_d4 = pin[GPIO_WEBCAM_Y6_GPIO_NUM];  //Y6_GPIO_NUM;
-  config.pin_d5 = pin[GPIO_WEBCAM_Y7_GPIO_NUM];  //Y7_GPIO_NUM;
-  config.pin_d6 = pin[GPIO_WEBCAM_Y8_GPIO_NUM];  //Y8_GPIO_NUM;
-  config.pin_d7 = pin[GPIO_WEBCAM_Y9_GPIO_NUM];  //Y9_GPIO_NUM;
-  config.pin_xclk = pin[GPIO_WEBCAM_XCLK_GPIO_NUM];  //XCLK_GPIO_NUM;
-  config.pin_pclk = pin[GPIO_WEBCAM_PCLK_GPIO_NUM];  //PCLK_GPIO_NUM;
-  config.pin_vsync = pin[GPIO_WEBCAM_VSYNC_GPIO_NUM];  //VSYNC_GPIO_NUM;
-  config.pin_href = pin[GPIO_WEBCAM_HREF_GPIO_NUM];  //HREF_GPIO_NUM;
-  config.pin_sscb_sda = pin[GPIO_WEBCAM_SIOD_GPIO_NUM];  //SIOD_GPIO_NUM;
-  config.pin_sscb_scl = pin[GPIO_WEBCAM_SIOC_GPIO_NUM];  //SIOC_GPIO_NUM;
+  config.pin_d0 = Pin(GPIO_WEBCAM_Y2_GPIO_NUM);  //Y2_GPIO_NUM;
+  config.pin_d1 = Pin(GPIO_WEBCAM_Y3_GPIO_NUM);  //Y3_GPIO_NUM;
+  config.pin_d2 = Pin(GPIO_WEBCAM_Y4_GPIO_NUM);  //Y4_GPIO_NUM;
+  config.pin_d3 = Pin(GPIO_WEBCAM_Y5_GPIO_NUM);  //Y5_GPIO_NUM;
+  config.pin_d4 = Pin(GPIO_WEBCAM_Y6_GPIO_NUM);  //Y6_GPIO_NUM;
+  config.pin_d5 = Pin(GPIO_WEBCAM_Y7_GPIO_NUM);  //Y7_GPIO_NUM;
+  config.pin_d6 = Pin(GPIO_WEBCAM_Y8_GPIO_NUM);  //Y8_GPIO_NUM;
+  config.pin_d7 = Pin(GPIO_WEBCAM_Y9_GPIO_NUM);  //Y9_GPIO_NUM;
+  config.pin_xclk = Pin(GPIO_WEBCAM_XCLK_GPIO_NUM);  //XCLK_GPIO_NUM;
+  config.pin_pclk = Pin(GPIO_WEBCAM_PCLK_GPIO_NUM);  //PCLK_GPIO_NUM;
+  config.pin_vsync = Pin(GPIO_WEBCAM_VSYNC_GPIO_NUM);  //VSYNC_GPIO_NUM;
+  config.pin_href = Pin(GPIO_WEBCAM_HREF_GPIO_NUM);  //HREF_GPIO_NUM;
+  config.pin_sscb_sda = Pin(GPIO_WEBCAM_SIOD_GPIO_NUM);  //SIOD_GPIO_NUM;
+  config.pin_sscb_scl = Pin(GPIO_WEBCAM_SIOC_GPIO_NUM);  //SIOC_GPIO_NUM;
 
   int16_t xpin;
-  xpin=pin[GPIO_WEBCAM_PWDN_GPIO_NUM];
+  xpin=Pin(GPIO_WEBCAM_PWDN_GPIO_NUM);
   if (xpin==99) xpin=-1;
   config.pin_pwdn = xpin; //PWDN_GPIO_NUM;
-  xpin=pin[GPIO_WEBCAM_RESET_GPIO_NUM];
+  xpin=Pin(GPIO_WEBCAM_RESET_GPIO_NUM);
   if (xpin==99) xpin=-1;
   config.pin_reset = xpin; //RESET_GPIO_NUM;
 #endif
