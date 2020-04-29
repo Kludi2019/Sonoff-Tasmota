@@ -1659,7 +1659,6 @@ chknext:
         }
         if (!strncmp(vname,"pn[",3)) {
           GetNumericResult(vname+3,OPER_EQU,&fvar,0);
-//          fvar=pin[(uint8_t)fvar];
           fvar=Pin(fvar);
           // skip ] bracket
           len++;
@@ -1668,8 +1667,8 @@ chknext:
         if (!strncmp(vname,"pd[",3)) {
           GetNumericResult(vname+3,OPER_EQU,&fvar,0);
           uint8_t gpiopin=fvar;
-          for (uint8_t i=0;i<GPIO_SENSOR_END;i++) {// Theo/Gemu: This needs to change when pin[] becomes real pin array
-//            if (pin[i]==gpiopin) {
+#ifdef LEGACY_GPIO_ARRAY
+          for (uint8_t i=0;i<GPIO_SENSOR_END;i++) {
             if (Pin(i)==gpiopin) {
               fvar=i;
               // skip ] bracket
@@ -1677,6 +1676,14 @@ chknext:
               goto exit;
             }
           }
+#else
+          if ((gpiopin < ARRAY_SIZE(pin)) && (pin[gpiopin] > 0)) {
+            fvar = pin[gpiopin];
+            // skip ] bracket
+            len++;
+            goto exit;
+          }
+#endif
           fvar=999;
           goto exit;
         }
@@ -5085,8 +5092,8 @@ bool Xdrv10(uint8_t function)
 #else
 
 #ifdef ESP32
-      if ((pin[GPIO_SSPI_MOSI]<99) && (pin[GPIO_SSPI_MISO]<99) && (pin[GPIO_SSPI_SCLK]<99)) {
-        SPI.begin(pin[GPIO_SSPI_SCLK],pin[GPIO_SSPI_MISO],pin[GPIO_SSPI_MOSI], -1);
+      if (PinUsed(GPIO_SSPI_MOSI) && PinUsed(GPIO_SSPI_MISO) && PinUsed(GPIO_SSPI_SCLK)) {
+        SPI.begin(Pin(GPIO_SSPI_SCLK),Pin(GPIO_SSPI_MISO),Pin(GPIO_SSPI_MOSI), -1);
       }
 #endif
       if (FS_USED.begin(USE_SCRIPT_FATFS)) {

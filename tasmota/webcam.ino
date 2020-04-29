@@ -5,6 +5,7 @@
 
 //#define USE_TEMPLATE
 
+#define WC_LOGLEVEL LOG_LEVEL_INFO
 
 #ifndef USE_TEMPLATE
 
@@ -126,17 +127,21 @@ camera_config_t config;
 
   // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
   //                      for larger pre-allocated frame buffer.
+
+  config.pixel_format = PIXFORMAT_JPEG;
+  
   psram=psramFound();
   if (psram) {
     config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10;
     config.fb_count = 2;
-    AddLog_P(LOG_LEVEL_INFO,"PSRAM found!");
+
+    AddLog_P(WC_LOGLEVEL,"PSRAM found!");
   } else {
     config.frame_size = FRAMESIZE_VGA;
     config.jpeg_quality = 12;
     config.fb_count = 1;
-    AddLog_P(LOG_LEVEL_INFO,"PSRAM not found!");
+    AddLog_P(WC_LOGLEVEL,"PSRAM not found!");
   }
 
   // stupid workaround camera diver eats up static ram should prefer SPIRAM
@@ -151,7 +156,7 @@ void *x=0;
   if (x) free(x);
 
   if (err != ESP_OK) {
-    AddLog_P2(LOG_LEVEL_INFO,"Camera init failed with error 0x%x", err);
+    AddLog_P2(WC_LOGLEVEL,"Camera init failed with error 0x%x", err);
     return 0;
   }
 
@@ -166,7 +171,7 @@ void *x=0;
   wc_s->set_framesize(wc_s, FRAMESIZE_CIF);
 
 
-  AddLog_P(LOG_LEVEL_INFO,"Camera successfully initialized!");
+  AddLog_P(WC_LOGLEVEL,"Camera successfully initialized!");
 
 
   //if (s_state)
@@ -334,11 +339,11 @@ WiFiClient client;
 uint32_t wc_timer;
 
 void handleMjpeg(void) {
-  AddLog_P(LOG_LEVEL_INFO, "handle camserver");
+  AddLog_P(WC_LOGLEVEL, "handle camserver");
   //if (!wc_stream_active) {
     wc_stream_active=1;
     client = CamServer->client();
-    AddLog_P(LOG_LEVEL_INFO, "create client");
+    AddLog_P(WC_LOGLEVEL, "create client");
   //}
 //  wc_timer=10;
 }
@@ -359,14 +364,14 @@ void handleMjpeg_task(void) {
 
   if (!client.connected()) {
     wc_stream_active=0;
-    AddLog_P(LOG_LEVEL_INFO,"client fail");
+    AddLog_P(WC_LOGLEVEL,"client fail");
     goto exit;
   }
 
   if (wc_stream_active==1) {
     client.flush();
     client.setTimeout(3);
-    AddLog_P(LOG_LEVEL_INFO, "start stream");
+    AddLog_P(WC_LOGLEVEL, "start stream");
     client.print("HTTP/1.1 200 OK\r\n"
   			"Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY "\r\n"
   				"\r\n");
@@ -378,7 +383,7 @@ void handleMjpeg_task(void) {
     wc_fb = esp_camera_fb_get();
     if (!wc_fb) {
       wc_stream_active=0;
-      AddLog_P(LOG_LEVEL_INFO, "frame fail");
+      AddLog_P(WC_LOGLEVEL, "frame fail");
       goto exit;
     }
 
@@ -386,7 +391,7 @@ void handleMjpeg_task(void) {
     if (wc_fb->format!=PIXFORMAT_JPEG) {
       jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
       if (!jpeg_converted){
-        AddLog_P(LOG_LEVEL_INFO, "JPEG compression failed");
+        AddLog_P(WC_LOGLEVEL, "JPEG compression failed");
         _jpg_buf_len = wc_fb->len;
         _jpg_buf = wc_fb->buf;
       }
@@ -403,7 +408,7 @@ void handleMjpeg_task(void) {
     if (tlen!=_jpg_buf_len) {
       esp_camera_fb_return(wc_fb);
       wc_stream_active=0;
-      AddLog_P(LOG_LEVEL_INFO, "send fail");
+      AddLog_P(WC_LOGLEVEL, "send fail");
     }*/
     client.print("\r\n--" BOUNDARY "\r\n");
 
@@ -417,7 +422,7 @@ void handleMjpeg_task(void) {
     }
     //if (jpeg_converted) free(_jpg_buf);
     esp_camera_fb_return(wc_fb);
-    //AddLog_P(LOG_LEVEL_INFO, "send frame");
+    //AddLog_P(WC_LOGLEVEL, "send frame");
 
     //Serial.printf("loop %d\n",client.status());
     //if (client.available()) {
@@ -426,7 +431,7 @@ void handleMjpeg_task(void) {
     //}
 exit:
     if (!wc_stream_active) {
-      AddLog_P(LOG_LEVEL_INFO, "stream exit");
+      AddLog_P(WC_LOGLEVEL, "stream exit");
       client.flush();
       client.stop();
     }
@@ -453,7 +458,7 @@ uint32_t wc_set_streamserver(uint32_t flag) {
       CamServer->on("/cam.mjpeg", handleMjpeg);
       CamServer->on("/cam.jpg", handleMjpeg);
       CamServer->on("/stream", handleMjpeg);
-      AddLog_P(LOG_LEVEL_INFO, "cam stream init");
+      AddLog_P(WC_LOGLEVEL, "cam stream init");
       CamServer->begin();
     }
   } else {
@@ -461,7 +466,7 @@ uint32_t wc_set_streamserver(uint32_t flag) {
       CamServer->stop();
       delete CamServer;
       CamServer=NULL;
-      AddLog_P(LOG_LEVEL_INFO, "cam stream exit");
+      AddLog_P(WC_LOGLEVEL, "cam stream exit");
 
     }
   }
