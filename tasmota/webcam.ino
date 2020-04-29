@@ -189,8 +189,7 @@ void *x=0;
 
 int32_t wc_set_options(uint32_t sel,int32_t value) {
   int32_t res=0;
-  sensor_t *s;
-  s = esp_camera_sensor_get();
+  sensor_t *s = esp_camera_sensor_get();
 
   switch (sel) {
     case 0:
@@ -217,20 +216,14 @@ int32_t wc_set_options(uint32_t sel,int32_t value) {
       if (value>=-4) s->set_brightness(s,value);
       res = s->status.brightness;
       break;
+    case 6:
+      if (value>=-4) s->set_saturation(s,value);
+      res = s->status.saturation;
+      break;
   }
 
   return res;
 }
-/* effects
-0 = no effect
-1 = negative
-2 = black and white
-3 = reddish
-4 = greenish
-5 = blue
-6 = retro
-*/
-
 
 uint32_t wc_get_width(void) {
   camera_fb_t *wc_fb = esp_camera_fb_get();
@@ -372,13 +365,13 @@ void HandleImage(void) {
   } else {
     bnum--;
     if (!picstore[bnum].len) {
-      AddLog_P2(LOG_LEVEL_DEBUG, PSTR("no image #: %d"), bnum);
+      AddLog_P2(WC_LOGLEVEL, PSTR("no image #: %d"), bnum);
       return;
     }
     client.write((char *)picstore[bnum].buff, picstore[bnum].len);
   }
 
-  AddLog_P2(LOG_LEVEL_DEBUG, PSTR("sending image #: %d"), bnum+1);
+  AddLog_P2(WC_LOGLEVEL, PSTR("sending image #: %d"), bnum+1);
 
 }
 
@@ -479,7 +472,7 @@ void handleMjpeg_task(void) {
                 accu+=abs(gray-lgray);
               }
             }
-            motion_trigger=accu/(wc_fb->height*wc_fb->width);
+            motion_trigger=accu/((wc_fb->height*wc_fb->width)/100);
             free(out_buf);
           }
         }
