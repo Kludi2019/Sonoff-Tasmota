@@ -386,7 +386,6 @@ ESP8266WebServer *CamServer;
 #define BOUNDARY "e8b8c539-047d-4777-a985-fbba6edff11e"
 
 WiFiClient client;
-uint32_t wc_timer;
 
 void handleMjpeg(void) {
   AddLog_P(WC_LOGLEVEL, "handle camserver");
@@ -395,10 +394,9 @@ void handleMjpeg(void) {
     client = CamServer->client();
     AddLog_P(WC_LOGLEVEL, "create client");
   //}
-//  wc_timer=10;
 }
 
-uint8_t motion_detect;
+uint16_t motion_detect;
 uint32_t motion_ltime;
 uint32_t motion_trigger;
 uint8_t *last_motion_buffer;
@@ -417,14 +415,7 @@ void handleMjpeg_task(void) {
   uint8_t *out_buf=0;
   //WiFiClient client = CamServer->client();
   uint32_t tlen;
-  //dl_matrix3du_t *image_matrix = NULL;
   bool jpeg_converted=false;
-/*
-  if (wc_timer) {
-    wc_timer--;
-    return;
-  }
-*/
 
   if (!client.connected()) {
     wc_stream_active=0;
@@ -462,7 +453,6 @@ void handleMjpeg_task(void) {
       _jpg_buf = wc_fb->buf;
     }
 
-    //image_matrix = dl_matrix3du_alloc(1, wc_fb->width, wc_fb->height, 3);
     if (motion_detect>0) {
       if (!last_motion_buffer) {
           last_motion_buffer=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -520,11 +510,6 @@ void handleMjpeg_task(void) {
     esp_camera_fb_return(wc_fb);
     //AddLog_P(WC_LOGLEVEL, "send frame");
 
-    //Serial.printf("loop %d\n",client.status());
-    //if (client.available()) {
-    //  char c = client.read();
-    //  Serial.print(c);
-    //}
 exit:
     if (!wc_stream_active) {
       AddLog_P(WC_LOGLEVEL, "stream exit");
@@ -602,268 +587,5 @@ flash led = gpio4
 red led = gpio 33
 */
 
-
-
-//#include "esp_http_server.h"
-//#include "fb_gfx.h"
-//#include "esp_timer.h"
-//#include "esp_camera.h"
-//#include "img_converters.h"
-
-/*
-static ra_filter_t * ra_filter_init(ra_filter_t * filter, size_t sample_size){
-    memset(filter, 0, sizeof(ra_filter_t));
-
-    filter->values = (int *)malloc(sample_size * sizeof(int));
-    if(!filter->values){
-        return NULL;
-    }
-    memset(filter->values, 0, sample_size * sizeof(int));
-
-    filter->size = sample_size;
-    return filter;
-}
-
-static int ra_filter_run(ra_filter_t * filter, int value){
-    if(!filter->values){
-        return value;
-    }
-    filter->sum -= filter->values[filter->index];
-    filter->values[filter->index] = value;
-    filter->sum += filter->values[filter->index];
-    filter->index++;
-    filter->index = filter->index % filter->size;
-    if (filter->count < filter->size) {
-        filter->count++;
-    }
-    return filter->sum / filter->count;
-}
-
-
-static esp_err_t stream_handler(void){
-httpd_req_t *req=0;
-
-    camera_fb_t *fb = NULL;
-    struct timeval _timestamp;
-    esp_err_t res = ESP_OK;
-    size_t _jpg_buf_len = 0;
-    uint8_t *_jpg_buf = NULL;
-    char *part_buf[128];
-#if CONFIG_ESP_FACE_DETECT_ENABLED
-    dl_matrix3du_t *image_matrix = NULL;
-    bool detected = false;
-    int face_id = 0;
-    int64_t fr_start = 0;
-    int64_t fr_ready = 0;
-    int64_t fr_face = 0;
-    int64_t fr_recognize = 0;
-    int64_t fr_encode = 0;
-#endif
-
-    static int64_t last_frame = 0;
-    if (!last_frame)
-    {
-        last_frame = esp_timer_get_time();
-    }
-
-    res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
-    if (res != ESP_OK)
-    {
-        return res;
-    }
-
-    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
-    httpd_resp_set_hdr(req, "X-Framerate", "60");
-
-#ifdef CONFIG_LED_ILLUMINATOR_ENABLED
-    enable_led(true);
-    isStreaming = true;
-#endif
-
-    while (true)
-    {
-#if CONFIG_ESP_FACE_DETECT_ENABLED
-        detected = false;
-        face_id = 0;
-#endif
-
-        fb = esp_camera_fb_get();
-        if (!fb)
-        {
-            ESP_LOGE(TAG, "Camera capture failed");
-            res = ESP_FAIL;
-        }
-        else
-        {
-            _timestamp.tv_sec = fb->timestamp.tv_sec;
-            _timestamp.tv_usec = fb->timestamp.tv_usec;
-#if CONFIG_ESP_FACE_DETECT_ENABLED
-            fr_start = esp_timer_get_time();
-            fr_ready = fr_start;
-            fr_face = fr_start;
-            fr_encode = fr_start;
-            fr_recognize = fr_start;
-            if (!detection_enabled || fb->width > 400)
-            {
-#endif
-                if (fb->format != PIXFORMAT_JPEG)
-                {
-                    bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
-                    esp_camera_fb_return(fb);
-                    fb = NULL;
-                    if (!jpeg_converted)
-                    {
-                        ESP_LOGE(TAG, "JPEG compression failed");
-                        res = ESP_FAIL;
-                    }
-                }
-                else
-                {
-                    _jpg_buf_len = fb->len;
-                    _jpg_buf = fb->buf;
-                }
-#if CONFIG_ESP_FACE_DETECT_ENABLED
-            }
-            else
-            {
-
-                image_matrix = dl_matrix3du_alloc(1, fb->width, fb->height, 3);
-
-                if (!image_matrix)
-                {
-                    ESP_LOGE(TAG, "dl_matrix3du_alloc failed");
-                    res = ESP_FAIL;
-                }
-                else
-                {
-                    if (!fmt2rgb888(fb->buf, fb->len, fb->format, image_matrix->item))
-                    {
-                        ESP_LOGE(TAG, "fmt2rgb888 failed");
-                        res = ESP_FAIL;
-                    }
-                    else
-                    {
-#if CONFIG_ESP_FACE_DETECT_LSSH
-                        // lssh_update_config(&lssh_config, min_face, image_matrix->h, image_matrix->w);
-#endif
-                        fr_ready = esp_timer_get_time();
-                        box_array_t *net_boxes = NULL;
-                        if (detection_enabled)
-                        {
-#if CONFIG_ESP_FACE_DETECT_MTMN
-                            net_boxes = face_detect(image_matrix, &mtmn_config);
-#endif
-
-#if CONFIG_ESP_FACE_DETECT_LSSH
-                            net_boxes = lssh_detect_object(image_matrix, lssh_config);
-#endif
-                        }
-                        fr_face = esp_timer_get_time();
-                        fr_recognize = fr_face;
-                        if (net_boxes || fb->format != PIXFORMAT_JPEG)
-                        {
-                            if (net_boxes)
-                            {
-                                detected = true;
-#if CONFIG_ESP_FACE_RECOGNITION_ENABLED
-                                if (recognition_enabled)
-                                {
-                                    face_id = run_face_recognition(image_matrix, net_boxes);
-                                }
-                                fr_recognize = esp_timer_get_time();
-#endif
-                                draw_face_boxes(image_matrix, net_boxes, face_id);
-                                dl_lib_free(net_boxes->score);
-                                dl_lib_free(net_boxes->box);
-                                if (net_boxes->landmark != NULL)
-                                    dl_lib_free(net_boxes->landmark);
-                                dl_lib_free(net_boxes);
-                            }
-                            if (!fmt2jpg(image_matrix->item, fb->width * fb->height * 3, fb->width, fb->height, PIXFORMAT_RGB888, 90, &_jpg_buf, &_jpg_buf_len))
-                            {
-                                ESP_LOGE(TAG, "fmt2jpg failed");
-                            }
-                            esp_camera_fb_return(fb);
-                            fb = NULL;
-                        }
-                        else
-                        {
-                            _jpg_buf = fb->buf;
-                            _jpg_buf_len = fb->len;
-                        }
-                        fr_encode = esp_timer_get_time();
-                    }
-                    dl_matrix3du_free(image_matrix);
-                }
-            }
-#endif
-        }
-        if (res == ESP_OK)
-        {
-            res = httpd_resp_send_chunk(req, _STREAM_BOUNDARY, strlen(_STREAM_BOUNDARY));
-        }
-        if (res == ESP_OK)
-        {
-            size_t hlen = snprintf((char *)part_buf, 128, _STREAM_PART, _jpg_buf_len, _timestamp.tv_sec, _timestamp.tv_usec);
-            res = httpd_resp_send_chunk(req, (const char *)part_buf, hlen);
-        }
-        if (res == ESP_OK)
-        {
-            res = httpd_resp_send_chunk(req, (const char *)_jpg_buf, _jpg_buf_len);
-        }
-        if (fb)
-        {
-            esp_camera_fb_return(fb);
-            fb = NULL;
-            _jpg_buf = NULL;
-        }
-        else if (_jpg_buf)
-        {
-            free(_jpg_buf);
-            _jpg_buf = NULL;
-        }
-        if (res != ESP_OK)
-        {
-            break;
-        }
-        int64_t fr_end = esp_timer_get_time();
-
-#if CONFIG_ESP_FACE_DETECT_ENABLED
-        int64_t ready_time = (fr_ready - fr_start) / 1000;
-        int64_t face_time = (fr_face - fr_ready) / 1000;
-        int64_t recognize_time = (fr_recognize - fr_face) / 1000;
-        int64_t encode_time = (fr_encode - fr_recognize) / 1000;
-        int64_t process_time = (fr_encode - fr_start) / 1000;
-#endif
-
-        int64_t frame_time = fr_end - last_frame;
-        last_frame = fr_end;
-        frame_time /= 1000;
-        uint32_t avg_frame_time = ra_filter_run(&ra_filter, frame_time);
-        ESP_LOGI(TAG, "MJPG: %uB %ums (%.1ffps), AVG: %ums (%.1ffps)"
-#if CONFIG_ESP_FACE_DETECT_ENABLED
-                      ", %u+%u+%u+%u=%u %s%d"
-#endif
-                 ,
-                 (uint32_t)(_jpg_buf_len),
-                 (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time,
-                 avg_frame_time, 1000.0 / avg_frame_time
-#if CONFIG_ESP_FACE_DETECT_ENABLED
-                 ,
-                 (uint32_t)ready_time, (uint32_t)face_time, (uint32_t)recognize_time, (uint32_t)encode_time, (uint32_t)process_time,
-                 (detected) ? "DETECTED " : "", face_id
-#endif
-        );
-    }
-
-#ifdef CONFIG_LED_ILLUMINATOR_ENABLED
-    isStreaming = false;
-    enable_led(false);
-#endif
-
-    last_frame = 0;
-    return res;
-}
-*/
 
 #endif
