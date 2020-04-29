@@ -1999,7 +1999,10 @@ chknext:
           SCRIPT_SKIP_SPACES
           switch ((uint32)fvar1) {
             case 0:
-              fvar=webcam_setup();
+              { float fvar2;
+                lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
+                fvar=webcam_setup(fvar2);
+              }
               break;
             case 1:
               { float fvar2;

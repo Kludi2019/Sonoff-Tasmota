@@ -40,10 +40,17 @@ uint16_t wc_width;
 uint16_t wc_height;
 uint8_t wc_stream_active;
 
-uint32_t webcam_setup(void) {
+uint32_t webcam_setup(int32_t fsiz) {
 bool psram;
 
+  if (fsiz>10) fsiz=10;
+
   wc_stream_active=0;
+
+  if (fsiz<0) {
+    esp_camera_deinit();
+    return 0;
+  }
 
   if (wc_up) {
     esp_camera_deinit();
@@ -169,7 +176,7 @@ void *x=0;
     wc_s->set_saturation(wc_s, -2); // lower the saturation
   }
   // drop down frame size for higher initial frame rate
-  wc_s->set_framesize(wc_s, FRAMESIZE_CIF);
+  wc_s->set_framesize(wc_s, (framesize_t)fsiz);
 
   camera_fb_t *wc_fb = esp_camera_fb_get();
   wc_width=wc_fb->width;
@@ -559,19 +566,23 @@ void wc_pic_setup(void) {
 
 /*
 typedef enum {
-    FRAMESIZE_96x96,    // 96x96
-    FRAMESIZE_QQVGA,    // 160x120
-    FRAMESIZE_QQVGA2,   // 128x160
-    FRAMESIZE_QCIF,     // 176x144
-    FRAMESIZE_HQVGA,    // 240x176
-    FRAMESIZE_240x240,  // 240x240
-    FRAMESIZE_QVGA,     // 320x240 6
-    FRAMESIZE_CIF,      // 400x296 7
-    FRAMESIZE_VGA,      // 640x480 8
-    FRAMESIZE_SVGA,     // 800x600
-    FRAMESIZE_XGA,      // 1024x768
-    FRAMESIZE_SXGA,     // 1280x1024
-    FRAMESIZE_UXGA,     // 1600x1200
+    // FRAMESIZE_96x96,    // 96x96
+    FRAMESIZE_QQVGA,    // 160x120 0
+    FRAMESIZE_QQVGA2,   // 128x160 1
+    FRAMESIZE_QCIF,     // 176x144 2
+    FRAMESIZE_HQVGA,    // 240x176 3
+
+  //  FRAMESIZE_240x240,  // 240x240 3
+
+    FRAMESIZE_QVGA,     // 320x240 4
+    FRAMESIZE_CIF,      // 400x296 5
+    FRAMESIZE_VGA,      // 640x480 6
+    FRAMESIZE_SVGA,     // 800x600 7
+    FRAMESIZE_XGA,      // 1024x768 8
+    FRAMESIZE_SXGA,     // 1280x1024 9
+    FRAMESIZE_UXGA,     // 1600x1200 10
+
+
     FRAMESIZE_QXGA,     // 2048*1536
     FRAMESIZE_INVALID
 } framesize_t;
