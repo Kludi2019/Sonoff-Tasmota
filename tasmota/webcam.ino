@@ -34,6 +34,7 @@
 #include "sensor.h"
 
 
+
 uint8_t wc_up;
 uint16_t wc_width;
 uint16_t wc_height;
@@ -41,12 +42,12 @@ uint8_t wc_stream_active;
 
 uint32_t webcam_setup(void) {
 bool psram;
-camera_fb_t *wc_fb;
 
   wc_stream_active=0;
 
   if (wc_up) {
-    return wc_up;
+    esp_camera_deinit();
+    //return wc_up;
   }
 
 //esp_log_level_set("*", ESP_LOG_VERBOSE);
@@ -56,6 +57,8 @@ camera_config_t config;
   config.ledc_timer = LEDC_TIMER_0;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
+  config.pixel_format = PIXFORMAT_GRAYSCALE;
+//  config.pixel_format = PIXFORMAT_RGB565;
 
 #ifndef USE_TEMPLATE
   config.pin_d0 = Y2_GPIO_NUM;
@@ -128,8 +131,6 @@ camera_config_t config;
   // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
   //                      for larger pre-allocated frame buffer.
 
-  config.pixel_format = PIXFORMAT_JPEG;
-  
   psram=psramFound();
   if (psram) {
     config.frame_size = FRAMESIZE_UXGA;
@@ -170,13 +171,12 @@ void *x=0;
   // drop down frame size for higher initial frame rate
   wc_s->set_framesize(wc_s, FRAMESIZE_CIF);
 
+  camera_fb_t *wc_fb = esp_camera_fb_get();
+  wc_width=wc_fb->width;
+  wc_height=wc_fb->height;
+  esp_camera_fb_return(wc_fb);
 
   AddLog_P(WC_LOGLEVEL,"Camera successfully initialized!");
-
-
-  //if (s_state)
-  //wc_width=s_state->width;
-
 
   wc_up=1;
 
@@ -186,20 +186,69 @@ void *x=0;
   return wc_up;
 }
 
-uint32_t wc_set_framesize(uint32_t size) {
-  sensor_t *s = esp_camera_sensor_get();
-  return s->set_framesize(s,(framesize_t)size);
+
+int32_t wc_set_options(uint32_t sel,int32_t value) {
+  int32_t res=0;
+  sensor_t *s;
+  s = esp_camera_sensor_get();
+
+  switch (sel) {
+    case 0:
+      if (value>=0) s->set_framesize(s,(framesize_t)value);
+      res = s->status.framesize;
+      break;
+    case 1:
+      if (value>=0) s->set_special_effect(s,value);
+      res = s->status.special_effect;
+      break;
+    case 2:
+      if (value>=0) s->set_vflip(s,value);
+      res = s->status.vflip;
+      break;
+    case 3:
+      if (value>=0) s->set_hmirror(s,value);
+      res = s->status.hmirror;
+      break;
+    case 4:
+      if (value>=-4) s->set_contrast(s,value);
+      res = s->status.contrast;
+      break;
+    case 5:
+      if (value>=-4) s->set_brightness(s,value);
+      res = s->status.brightness;
+      break;
+  }
+
+  return res;
 }
+/* effects
+0 = no effect
+1 = negative
+2 = black and white
+3 = reddish
+4 = greenish
+5 = blue
+6 = retro
+*/
+
 
 uint32_t wc_get_width(void) {
+  camera_fb_t *wc_fb = esp_camera_fb_get();
+  wc_width=wc_fb->width;
+  esp_camera_fb_return(wc_fb);
   return wc_width;
 }
 
 uint32_t wc_get_height(void) {
+  camera_fb_t *wc_fb = esp_camera_fb_get();
+  wc_height=wc_fb->height;
+  esp_camera_fb_return(wc_fb);
   return wc_height;
 }
 
+#ifndef MAX_PICSTORE
 #define MAX_PICSTORE 4
+#endif
 struct PICSTORE {
   uint8_t *buff;
   uint32_t len;
@@ -240,6 +289,7 @@ uint32_t wc_get_frame(int32_t bnum) {
   size_t _jpg_buf_len = 0;
   uint8_t * _jpg_buf = NULL;
   camera_fb_t *wc_fb=0;
+  bool jpeg_converted=false;
 
   if (bnum<0) {
     if (bnum<-MAX_PICSTORE) bnum=-1;
@@ -267,7 +317,7 @@ uint32_t wc_get_frame(int32_t bnum) {
     esp_camera_fb_return(wc_fb);
     return 0;
   }
-  bool jpeg_converted;
+
   if (wc_fb->format!=PIXFORMAT_JPEG) {
     jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
     if (!jpeg_converted){
@@ -292,7 +342,7 @@ pcopy:
     picstore[bnum].len=0;
   }
   if (wc_fb) esp_camera_fb_return(wc_fb);
-  //if (jpeg_converted) free(_jpg_buf);
+  if (jpeg_converted) free(_jpg_buf);
   if (!picstore[bnum].buff) return 0;
   return  _jpg_buf_len;
 }
@@ -348,13 +398,23 @@ void handleMjpeg(void) {
 //  wc_timer=10;
 }
 
+uint8_t motion_detect;
+uint8_t motion_trigger;
+
+uint32_t wc_set_motion_detect(int32_t value) {
+  if (value>=0) motion_detect=value;
+  return motion_trigger;
+}
+
 void handleMjpeg_task(void) {
   camera_fb_t *wc_fb;
   size_t _jpg_buf_len = 0;
   uint8_t * _jpg_buf = NULL;
+  uint8_t *out_buf=0;
   //WiFiClient client = CamServer->client();
   uint32_t tlen;
-
+  //dl_matrix3du_t *image_matrix = NULL;
+  bool jpeg_converted=false;
 /*
   if (wc_timer) {
     wc_timer--;
@@ -378,8 +438,6 @@ void handleMjpeg_task(void) {
     wc_stream_active=2;
   } else {
 
-
-
     wc_fb = esp_camera_fb_get();
     if (!wc_fb) {
       wc_stream_active=0;
@@ -387,7 +445,7 @@ void handleMjpeg_task(void) {
       goto exit;
     }
 
-    bool jpeg_converted;
+
     if (wc_fb->format!=PIXFORMAT_JPEG) {
       jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
       if (!jpeg_converted){
@@ -398,6 +456,22 @@ void handleMjpeg_task(void) {
     } else {
       _jpg_buf_len = wc_fb->len;
       _jpg_buf = wc_fb->buf;
+    }
+
+    //image_matrix = dl_matrix3du_alloc(1, wc_fb->width, wc_fb->height, 3);
+    if (motion_detect>0) {
+      out_buf=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height*3)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+      if (out_buf) {
+        fmt2rgb888(wc_fb->buf, wc_fb->len, wc_fb->format, out_buf);
+        uint32_t x,y;
+        uint8_t *px=out_buf;
+        for (x=0;x<wc_fb->width;x++) {
+          for (y=0;y<wc_fb->height;y++) {
+            
+          }
+        }
+        free(out_buf);
+      }
     }
 
     client.printf("Content-Type: image/jpeg\r\n"
@@ -420,7 +494,7 @@ void handleMjpeg_task(void) {
     } else {
       tmp_picstore.len=0;
     }
-    //if (jpeg_converted) free(_jpg_buf);
+    if (jpeg_converted) free(_jpg_buf);
     esp_camera_fb_return(wc_fb);
     //AddLog_P(WC_LOGLEVEL, "send frame");
 
@@ -507,14 +581,6 @@ red led = gpio 33
 */
 
 
-
-typedef struct {
-        size_t size; //number of values used for filtering
-        size_t index; //current value index
-        size_t count; //value count
-        int sum;
-        int * values; //array to be filled with values
-} ra_filter_t;
 
 //#include "esp_http_server.h"
 //#include "fb_gfx.h"

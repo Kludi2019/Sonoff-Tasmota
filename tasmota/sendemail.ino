@@ -404,8 +404,8 @@ void xsend_message_txt(char *msg) {
 //For demo only
 //#include "image.h"
 
-#ifndef SEND_MAIL_MINRAM
-#define SEND_MAIL_MINRAM 30*1024
+#ifndef SEND_MAIL32_MINRAM
+#define SEND_MAIL32_MINRAM 30*1024
 #endif
 
 void script_send_email_body(void(*func)(char *));
@@ -436,7 +436,7 @@ uint16_t SendMail(char *buffer) {
   // return if not enough memory
   uint32_t mem=ESP.getFreeHeap();
   AddLog_P2(LOG_LEVEL_INFO, PSTR("heap: %d"),mem);
-  if (mem<SEND_MAIL_MINRAM) {
+  if (mem<SEND_MAIL32_MINRAM) {
     return 4;
   }
 

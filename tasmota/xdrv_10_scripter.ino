@@ -108,9 +108,11 @@ enum {SCRIPT_LOGLEVEL=1,SCRIPT_TELEPERIOD};
 
 #ifdef USE_MMC
 #include <SD_MMC.h>
+#undef FS_USED
 #define FS_USED SD_MMC
 #else
 #include <SD.h>
+#undef FS_USED
 #define FS_USED SD
 #endif
 
@@ -124,8 +126,10 @@ enum {SCRIPT_LOGLEVEL=1,SCRIPT_TELEPERIOD};
 #define FAT_SCRIPT_SIZE 4096
 #endif
 #ifdef ESP32
+#undef FAT_SCRIPT_NAME
 #define FAT_SCRIPT_NAME "/script.txt"
 #else
+#undef FAT_SCRIPT_NAME
 #define FAT_SCRIPT_NAME "script.txt"
 #endif
 
@@ -2004,9 +2008,11 @@ chknext:
               }
               break;
             case 2:
-              { float fvar2;
+              { float fvar2,fvar3;
                 lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
-                fvar=wc_set_framesize(fvar2);
+                SCRIPT_SKIP_SPACES
+                lp=GetNumericResult(lp,OPER_EQU,&fvar3,0);
+                fvar=wc_set_options(fvar2,fvar3);
               }
               break;
             case 3:
@@ -2021,6 +2027,13 @@ chknext:
                 fvar=wc_set_streamserver(fvar2);
               }
               break;
+            case 6:
+              { float fvar2;
+                lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
+                fvar=wc_set_motion_detect(fvar2);
+              }
+              break;
+
             default:
               fvar=0;
           }

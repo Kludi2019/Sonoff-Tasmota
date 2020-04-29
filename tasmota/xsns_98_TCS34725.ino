@@ -196,7 +196,6 @@ void TCS34725_EverySecond() {
 
 #define D_LUX "Lux"
 #define D_COLOR_TEMP "ColorTemp"
-#define D_UNIT_KELVIN "K"
 #define D_RED "red"
 #define D_GREEN "green"
 #define D_BLUE "blue"

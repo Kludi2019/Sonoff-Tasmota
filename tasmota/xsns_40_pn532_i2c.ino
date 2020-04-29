@@ -36,18 +36,26 @@
 #define EEPROM_ADDRESS 0x50
 static Eeprom24C128_256 eeprom(EEPROM_ADDRESS);
 // eeprom.writeBytes(address, length, buffer);
+#undef EEP_WBYTES
 #define EEP_WBYTES(A,B) eeprom.writeBytes(A*sizeof(struct RFID),sizeof(struct RFID),(byte*)B);
 // eeprom.readBytes(address, length, buffer);
+#undef EEP_RBYTES
 #define EEP_RBYTES(A,B) eeprom.readBytes(A*sizeof(struct RFID),sizeof(struct RFID),(byte*)B);
+#undef EEP_INIT
 #define EEP_INIT(A) eeprom.initialize();
+#undef EEP_SAVE
 #define EEP_SAVE()
 #else
 // esp eeprom simulator
 #undef MAX_TAGS
 #define MAX_TAGS 12
+#undef EEP_WBYTES
 #define EEP_WBYTES(A,B) TAG2EEPROM(A,B);
+#undef EEP_RBYTES
 #define EEP_RBYTES(A,B) EEPROM2TAG(A,B);
+#undef EEP_INIT
 #define EEP_INIT(A) EepromBegin(A);
+#undef EEP_SAVE
 #define EEP_SAVE() EepromCommit();
 #endif
 
