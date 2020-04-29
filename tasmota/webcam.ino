@@ -57,7 +57,7 @@ camera_config_t config;
   config.ledc_timer = LEDC_TIMER_0;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
-  config.pixel_format = PIXFORMAT_GRAYSCALE;
+//  config.pixel_format = PIXFORMAT_GRAYSCALE;
 //  config.pixel_format = PIXFORMAT_RGB565;
 
 #ifndef USE_TEMPLATE
@@ -399,12 +399,16 @@ void handleMjpeg(void) {
 }
 
 uint8_t motion_detect;
-uint8_t motion_trigger;
+uint32_t motion_ltime;
+uint32_t motion_trigger;
+uint8_t *last_motion_buffer;
+
 
 uint32_t wc_set_motion_detect(int32_t value) {
   if (value>=0) motion_detect=value;
   return motion_trigger;
 }
+
 
 void handleMjpeg_task(void) {
   camera_fb_t *wc_fb;
@@ -460,17 +464,35 @@ void handleMjpeg_task(void) {
 
     //image_matrix = dl_matrix3du_alloc(1, wc_fb->width, wc_fb->height, 3);
     if (motion_detect>0) {
-      out_buf=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height*3)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-      if (out_buf) {
-        fmt2rgb888(wc_fb->buf, wc_fb->len, wc_fb->format, out_buf);
-        uint32_t x,y;
-        uint8_t *px=out_buf;
-        for (x=0;x<wc_fb->width;x++) {
-          for (y=0;y<wc_fb->height;y++) {
-            
+      if (!last_motion_buffer) {
+          last_motion_buffer=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+      }
+      if (last_motion_buffer) {
+        if ((millis()-motion_ltime)>motion_detect) {
+          motion_ltime=millis();
+          out_buf=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height*3)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+          if (out_buf) {
+            fmt2rgb888(wc_fb->buf, wc_fb->len, wc_fb->format, out_buf);
+            uint32_t x,y;
+            //uint8_t *pxo=out_buf;
+            uint8_t *pxi=out_buf;
+            uint8_t *pxr=last_motion_buffer;
+            // convert to bw
+            uint64_t accu=0;
+            for (y=0;y<wc_fb->height;y++) {
+              for (x=0;x<wc_fb->width;x++) {
+                int32_t gray=(pxi[0]+pxi[1]+pxi[2])/3;
+                int32_t lgray=pxr[0];
+                pxr[0]=gray;
+                pxi+=3;
+                pxr++;
+                accu+=abs(gray-lgray);
+              }
+            }
+            motion_trigger=accu/(wc_fb->height*wc_fb->width);
+            free(out_buf);
           }
         }
-        free(out_buf);
       }
     }
 
