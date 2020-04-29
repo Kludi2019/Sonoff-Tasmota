@@ -1681,8 +1681,8 @@ chknext:
             }
           }
 #else
-          if ((gpiopin < ARRAY_SIZE(pin)) && (pin[gpiopin] > 0)) {
-            fvar = pin[gpiopin];
+          if ((gpiopin < ARRAY_SIZE(pin)) && (gpio_pin[gpiopin] > 0)) {
+            fvar = gpio_pin[gpiopin];
             // skip ] bracket
             len++;
             goto exit;
