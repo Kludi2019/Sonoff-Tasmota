@@ -84,25 +84,6 @@ config.pin_pwdn = PWDN_GPIO_NUM;
 config.pin_reset = RESET_GPIO_NUM;
 
 #else
-/*
-#define PWDN_GPIO_NUM     32
-#define RESET_GPIO_NUM    -1
-#define XCLK_GPIO_NUM      0
-#define SIOD_GPIO_NUM     26
-#define SIOC_GPIO_NUM     27
-
-#define Y9_GPIO_NUM       35
-#define Y8_GPIO_NUM       34
-#define Y7_GPIO_NUM       39
-#define Y6_GPIO_NUM       36
-#define Y5_GPIO_NUM       21
-#define Y4_GPIO_NUM       19
-#define Y3_GPIO_NUM       18
-#define Y2_GPIO_NUM        5
-#define VSYNC_GPIO_NUM    25
-#define HREF_GPIO_NUM     23
-#define PCLK_GPIO_NUM     22
-*/
 
 if (PinUsed(GPIO_WEBCAM_Y2_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y3_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y4_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y5_GPIO_NUM)\
  && PinUsed(GPIO_WEBCAM_Y6_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y7_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y8_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y9_GPIO_NUM)\
@@ -435,7 +416,7 @@ void handleMjpeg_task(void) {
   camera_fb_t *wc_fb;
   size_t _jpg_buf_len = 0;
   uint8_t * _jpg_buf = NULL;
-  uint8_t *out_buf=0;
+
   //WiFiClient client = CamServer->client();
   uint32_t tlen;
   bool jpeg_converted=false;
@@ -463,7 +444,6 @@ void handleMjpeg_task(void) {
       goto exit;
     }
 
-
     if (wc_fb->format!=PIXFORMAT_JPEG) {
       jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
       if (!jpeg_converted){
@@ -474,40 +454,6 @@ void handleMjpeg_task(void) {
     } else {
       _jpg_buf_len = wc_fb->len;
       _jpg_buf = wc_fb->buf;
-    }
-
-    // optional motion detector
-    if (motion_detect>0) {
-      if (!last_motion_buffer) {
-          last_motion_buffer=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-      }
-      if (last_motion_buffer) {
-        if ((millis()-motion_ltime)>motion_detect) {
-          motion_ltime=millis();
-          out_buf=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height*3)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
-          if (out_buf) {
-            fmt2rgb888(wc_fb->buf, wc_fb->len, wc_fb->format, out_buf);
-            uint32_t x,y;
-            //uint8_t *pxo=out_buf;
-            uint8_t *pxi=out_buf;
-            uint8_t *pxr=last_motion_buffer;
-            // convert to bw
-            uint64_t accu=0;
-            for (y=0;y<wc_fb->height;y++) {
-              for (x=0;x<wc_fb->width;x++) {
-                int32_t gray=(pxi[0]+pxi[1]+pxi[2])/3;
-                int32_t lgray=pxr[0];
-                pxr[0]=gray;
-                pxi+=3;
-                pxr++;
-                accu+=abs(gray-lgray);
-              }
-            }
-            motion_trigger=accu/((wc_fb->height*wc_fb->width)/100);
-            free(out_buf);
-          }
-        }
-      }
     }
 
     client.printf("Content-Type: image/jpeg\r\n"
@@ -550,6 +496,48 @@ void CamHandleRoot(void) {
   Serial.printf("WC root called");
 }
 
+// optional motion detector
+void detect_motion(void) {
+camera_fb_t *wc_fb;
+uint8_t *out_buf=0;
+
+    wc_fb = esp_camera_fb_get();
+    if (!wc_fb) return;
+    if (wc_fb->format!=PIXFORMAT_JPEG) return;
+
+    if (!last_motion_buffer) {
+      last_motion_buffer=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    }
+    if (last_motion_buffer) {
+      if ((millis()-motion_ltime)>motion_detect) {
+        motion_ltime=millis();
+        out_buf=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height*3)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+        if (out_buf) {
+          fmt2rgb888(wc_fb->buf, wc_fb->len, wc_fb->format, out_buf);
+          uint32_t x,y;
+          //uint8_t *pxo=out_buf;
+          uint8_t *pxi=out_buf;
+          uint8_t *pxr=last_motion_buffer;
+          // convert to bw
+          uint64_t accu=0;
+          for (y=0;y<wc_fb->height;y++) {
+            for (x=0;x<wc_fb->width;x++) {
+              int32_t gray=(pxi[0]+pxi[1]+pxi[2])/3;
+              int32_t lgray=pxr[0];
+              pxr[0]=gray;
+              pxi+=3;
+              pxr++;
+              accu+=abs(gray-lgray);
+            }
+          }
+          motion_trigger=accu/((wc_fb->height*wc_fb->width)/100);
+          free(out_buf);
+        }
+      }
+    }
+    esp_camera_fb_return(wc_fb);
+}
+
 uint32_t wc_set_streamserver(uint32_t flag) {
 
   if (global_state.wifi_down) return 0;
@@ -581,6 +569,7 @@ uint32_t wc_set_streamserver(uint32_t flag) {
 void wc_loop(void) {
   if (CamServer) CamServer->handleClient();
   if (wc_stream_active) handleMjpeg_task();
+  if (motion_detect) detect_motion();
 }
 
 void wc_pic_setup(void) {
