@@ -405,16 +405,7 @@ void handleMjpeg(void) {
   //}
 }
 
-uint16_t motion_detect;
-uint32_t motion_ltime;
-uint32_t motion_trigger;
-uint8_t *last_motion_buffer;
 
-
-uint32_t wc_set_motion_detect(int32_t value) {
-  if (value>=0) motion_detect=value;
-  return motion_trigger;
-}
 
 
 void handleMjpeg_task(void) {
@@ -502,6 +493,16 @@ void CamHandleRoot(void) {
   CamServer->sendHeader("Location", WiFi.localIP().toString() + ":81/cam.mjpeg");
   CamServer->send(302, "", "");
   Serial.printf("WC root called");
+}
+
+uint16_t motion_detect;
+uint32_t motion_ltime;
+uint32_t motion_trigger;
+uint8_t *last_motion_buffer;
+
+uint32_t wc_set_motion_detect(int32_t value) {
+  if (value>=0) motion_detect=value;
+  return motion_trigger;
 }
 
 // optional motion detector
