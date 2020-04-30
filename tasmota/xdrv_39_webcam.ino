@@ -1,13 +1,14 @@
 
 #if defined(ESP32) && defined(USE_WEBCAM)
 
+#define XDRV_39                    39
+
 #define CAMERA_MODEL_AI_THINKER
 
-//#define USE_TEMPLATE
+#define USE_TEMPLATE
 
 #define WC_LOGLEVEL LOG_LEVEL_INFO
 
-#ifndef USE_TEMPLATE
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -27,20 +28,16 @@
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 
-#endif
-
 
 #include "esp_camera.h"
 #include "sensor.h"
-
-
 
 uint8_t wc_up;
 uint16_t wc_width;
 uint16_t wc_height;
 uint8_t wc_stream_active;
 
-uint32_t webcam_setup(int32_t fsiz) {
+uint32_t wc_setup(int32_t fsiz) {
 bool psram;
 
   if (fsiz>10) fsiz=10;
@@ -68,22 +65,23 @@ camera_config_t config;
 //  config.pixel_format = PIXFORMAT_RGB565;
 
 #ifndef USE_TEMPLATE
-  config.pin_d0 = Y2_GPIO_NUM;
-  config.pin_d1 = Y3_GPIO_NUM;
-  config.pin_d2 = Y4_GPIO_NUM;
-  config.pin_d3 = Y5_GPIO_NUM;
-  config.pin_d4 = Y6_GPIO_NUM;
-  config.pin_d5 = Y7_GPIO_NUM;
-  config.pin_d6 = Y8_GPIO_NUM;
-  config.pin_d7 = Y9_GPIO_NUM;
-  config.pin_xclk = XCLK_GPIO_NUM;
-  config.pin_pclk = PCLK_GPIO_NUM;
-  config.pin_vsync = VSYNC_GPIO_NUM;
-  config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
-  config.pin_pwdn = PWDN_GPIO_NUM;
-  config.pin_reset = RESET_GPIO_NUM;
+
+config.pin_d0 = Y2_GPIO_NUM;
+config.pin_d1 = Y3_GPIO_NUM;
+config.pin_d2 = Y4_GPIO_NUM;
+config.pin_d3 = Y5_GPIO_NUM;
+config.pin_d4 = Y6_GPIO_NUM;
+config.pin_d5 = Y7_GPIO_NUM;
+config.pin_d6 = Y8_GPIO_NUM;
+config.pin_d7 = Y9_GPIO_NUM;
+config.pin_xclk = XCLK_GPIO_NUM;
+config.pin_pclk = PCLK_GPIO_NUM;
+config.pin_vsync = VSYNC_GPIO_NUM;
+config.pin_href = HREF_GPIO_NUM;
+config.pin_sscb_sda = SIOD_GPIO_NUM;
+config.pin_sscb_scl = SIOC_GPIO_NUM;
+config.pin_pwdn = PWDN_GPIO_NUM;
+config.pin_reset = RESET_GPIO_NUM;
 
 #else
 /*
@@ -105,6 +103,11 @@ camera_config_t config;
 #define HREF_GPIO_NUM     23
 #define PCLK_GPIO_NUM     22
 */
+
+if (PinUsed(GPIO_WEBCAM_Y2_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y3_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y4_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y5_GPIO_NUM)\
+ && PinUsed(GPIO_WEBCAM_Y6_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y7_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y8_GPIO_NUM) && PinUsed(GPIO_WEBCAM_Y9_GPIO_NUM)\
+ && PinUsed(GPIO_WEBCAM_XCLK_GPIO_NUM) && PinUsed(GPIO_WEBCAM_PCLK_GPIO_NUM) && PinUsed(GPIO_WEBCAM_VSYNC_GPIO_NUM) && PinUsed(GPIO_WEBCAM_HREF_GPIO_NUM)\
+ && PinUsed(GPIO_WEBCAM_SIOD_GPIO_NUM) && PinUsed(GPIO_WEBCAM_SIOC_GPIO_NUM)) {
 
   config.pin_d0 = Pin(GPIO_WEBCAM_Y2_GPIO_NUM);  //Y2_GPIO_NUM;
   config.pin_d1 = Pin(GPIO_WEBCAM_Y3_GPIO_NUM);  //Y3_GPIO_NUM;
@@ -128,6 +131,27 @@ camera_config_t config;
   xpin=Pin(GPIO_WEBCAM_RESET_GPIO_NUM);
   if (xpin==99) xpin=-1;
   config.pin_reset = xpin; //RESET_GPIO_NUM;
+} else {
+  // defaults to AI THINKER
+  config.pin_d0 = Y2_GPIO_NUM;
+  config.pin_d1 = Y3_GPIO_NUM;
+  config.pin_d2 = Y4_GPIO_NUM;
+  config.pin_d3 = Y5_GPIO_NUM;
+  config.pin_d4 = Y6_GPIO_NUM;
+  config.pin_d5 = Y7_GPIO_NUM;
+  config.pin_d6 = Y8_GPIO_NUM;
+  config.pin_d7 = Y9_GPIO_NUM;
+  config.pin_xclk = XCLK_GPIO_NUM;
+  config.pin_pclk = PCLK_GPIO_NUM;
+  config.pin_vsync = VSYNC_GPIO_NUM;
+  config.pin_href = HREF_GPIO_NUM;
+  config.pin_sscb_sda = SIOD_GPIO_NUM;
+  config.pin_sscb_scl = SIOC_GPIO_NUM;
+  config.pin_pwdn = PWDN_GPIO_NUM;
+  config.pin_reset = RESET_GPIO_NUM;
+}
+
+
 #endif
 
   //ESP.getPsramSize()
@@ -143,7 +167,6 @@ camera_config_t config;
     config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10;
     config.fb_count = 2;
-
     AddLog_P(WC_LOGLEVEL,"PSRAM found!");
   } else {
     config.frame_size = FRAMESIZE_VGA;
@@ -152,8 +175,8 @@ camera_config_t config;
     AddLog_P(WC_LOGLEVEL,"PSRAM not found!");
   }
 
-  // stupid workaround camera diver eats up static ram should prefer SPIRAM
-  // so we steal static ram to force driver to alloc SPIRAM
+  // stupid workaround camera diver eats up static ram should prefer PSRAM
+  // so we steal static ram to force driver to alloc PSRAM
   //ESP.getMaxAllocHeap()
 
 //  void *x=malloc(70000);
@@ -591,5 +614,22 @@ flash led = gpio4
 red led = gpio 33
 */
 
+/*********************************************************************************************\
+ * Interface
+\*********************************************************************************************/
+
+bool Xdrv39(uint8_t function) {
+  bool result = false;
+
+  switch (function) {
+    case FUNC_LOOP:
+      wc_loop();
+      break;
+    case FUNC_WEB_ADD_HANDLER:
+      wc_pic_setup();
+      break;
+  }
+  return result;
+}
 
 #endif

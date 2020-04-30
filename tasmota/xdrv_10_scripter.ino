@@ -2001,7 +2001,7 @@ chknext:
             case 0:
               { float fvar2;
                 lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
-                fvar=webcam_setup(fvar2);
+                fvar=wc_setup(fvar2);
               }
               break;
             case 1:
@@ -5174,11 +5174,6 @@ bool Xdrv10(uint8_t function)
 #endif
       }
       break;
-#if defined(ESP32) && defined(USE_WEBCAM)
-    case FUNC_LOOP:
-      wc_loop();
-      break;
-#endif
     case FUNC_EVERY_100_MSECOND:
       ScripterEvery100ms();
       break;
@@ -5209,9 +5204,6 @@ bool Xdrv10(uint8_t function)
     case FUNC_WEB_ADD_HANDLER:
       Webserver->on("/" WEB_HANDLE_SCRIPT, HandleScriptConfiguration);
       Webserver->on("/ta",HTTP_POST, HandleScriptTextareaConfiguration);
-#if defined(ESP32) && defined(USE_WEBCAM)
-      wc_pic_setup();
-#endif
 
 #ifdef USE_SCRIPT_FATFS
       Webserver->on("/u3", HTTP_POST,[]() { Webserver->sendHeader("Location","/u3");Webserver->send(303);},script_upload);
