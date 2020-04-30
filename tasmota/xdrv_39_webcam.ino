@@ -509,21 +509,20 @@ void detect_motion(void) {
 camera_fb_t *wc_fb;
 uint8_t *out_buf=0;
 
+  if ((millis()-motion_ltime)>motion_detect) {
+    motion_ltime=millis();
     wc_fb = esp_camera_fb_get();
     if (!wc_fb) return;
-    if (wc_fb->format!=PIXFORMAT_JPEG) return;
 
     if (!last_motion_buffer) {
       last_motion_buffer=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     }
     if (last_motion_buffer) {
-      if ((millis()-motion_ltime)>motion_detect) {
-        motion_ltime=millis();
+      if (wc_fb->format==PIXFORMAT_JPEG) {
         out_buf=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height*3)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (out_buf) {
           fmt2rgb888(wc_fb->buf, wc_fb->len, wc_fb->format, out_buf);
           uint32_t x,y;
-          //uint8_t *pxo=out_buf;
           uint8_t *pxi=out_buf;
           uint8_t *pxr=last_motion_buffer;
           // convert to bw
@@ -544,6 +543,7 @@ uint8_t *out_buf=0;
       }
     }
     esp_camera_fb_return(wc_fb);
+  }
 }
 
 uint32_t wc_set_streamserver(uint32_t flag) {
