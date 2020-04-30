@@ -476,6 +476,7 @@ void handleMjpeg_task(void) {
       _jpg_buf = wc_fb->buf;
     }
 
+    // optional motion detector
     if (motion_detect>0) {
       if (!last_motion_buffer) {
           last_motion_buffer=(uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height)+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
