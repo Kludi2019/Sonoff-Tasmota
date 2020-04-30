@@ -259,7 +259,10 @@ struct PICSTORE {
 };
 
 struct PICSTORE picstore[MAX_PICSTORE];
+
+#ifdef COPYFRAME
 struct PICSTORE tmp_picstore;
+#endif
 
 uint32_t get_picstore(int32_t num, uint8_t **buff) {
   if (num<0) return MAX_PICSTORE;
@@ -304,6 +307,7 @@ uint32_t wc_get_frame(int32_t bnum) {
     return 0;
   }
 
+#ifdef COPYFRAME
   if (bnum&0x10) {
     bnum&=0xf;
     _jpg_buf=tmp_picstore.buff;
@@ -311,6 +315,7 @@ uint32_t wc_get_frame(int32_t bnum) {
     if (!_jpg_buf_len) return 0;
     goto pcopy;
   }
+#endif
 
   wc_fb = esp_camera_fb_get();
   if (!wc_fb) return 0;
@@ -361,7 +366,7 @@ void HandleImage(void) {
   if (bnum<0 || bnum>MAX_PICSTORE) bnum=1;
   WiFiClient client = Webserver->client();
   String response = "HTTP/1.1 200 OK\r\n";
-  response += "Content-disposition: inline; filename=capture.jpg\r\n";
+  response += "Content-disposition: inline; filename=cap.jpg\r\n";
   response += "Content-type: image/jpeg\r\n\r\n";
   Webserver->sendContent(response);
 
@@ -468,6 +473,7 @@ void handleMjpeg_task(void) {
     }*/
     client.print("\r\n--" BOUNDARY "\r\n");
 
+#ifdef COPYFRAME
     if (tmp_picstore.buff) free(tmp_picstore.buff);
     tmp_picstore.buff = (uint8_t *)heap_caps_malloc(_jpg_buf_len+4,MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (tmp_picstore.buff) {
@@ -476,6 +482,8 @@ void handleMjpeg_task(void) {
     } else {
       tmp_picstore.len=0;
     }
+#endif
+
     if (jpeg_converted) free(_jpg_buf);
     esp_camera_fb_return(wc_fb);
     //AddLog_P(WC_LOGLEVEL, "send frame");
