@@ -5,7 +5,7 @@
 
 #define CAMERA_MODEL_AI_THINKER
 
-#define USE_TEMPLATE
+//#define USE_TEMPLATE
 
 #define WC_LOGLEVEL LOG_LEVEL_INFO
 
@@ -318,8 +318,10 @@ uint32_t wc_get_frame(int32_t bnum) {
 #endif
 
   wc_fb = esp_camera_fb_get();
-  if (!wc_fb) return 0;
-
+  if (!wc_fb) {
+    AddLog_P(WC_LOGLEVEL, "cant get frame");
+    return 0;
+  }
   if (!bnum) {
     wc_width = wc_fb->width;
     wc_height = wc_fb->height;
@@ -348,6 +350,7 @@ pcopy:
     memcpy(picstore[bnum].buff,_jpg_buf,_jpg_buf_len);
     picstore[bnum].len=_jpg_buf_len;
   } else {
+    AddLog_P(WC_LOGLEVEL, "cant allocate picstore");
     picstore[bnum].len=0;
   }
   if (wc_fb) esp_camera_fb_return(wc_fb);
