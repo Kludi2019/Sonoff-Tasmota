@@ -1519,7 +1519,8 @@ void GpioInit(void)
     if (PinUsed(GPIO_PWM1, i)) {
       pinMode(Pin(GPIO_PWM1, i), OUTPUT);
 #ifdef ESP32
-      ledcAttachPin(Pin(GPIO_PWM1, i), i);
+      analogAttach(Pin(GPIO_PWM1, i),i);
+      analogWriteFreqRange(i,Settings.pwm_frequency,Settings.pwm_range);
 #endif
       if (light_type) {
         // force PWM GPIOs to low or high mode, see #7165
