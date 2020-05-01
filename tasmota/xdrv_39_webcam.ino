@@ -201,6 +201,7 @@ void *x=0;
 int32_t wc_set_options(uint32_t sel,int32_t value) {
   int32_t res=0;
   sensor_t *s = esp_camera_sensor_get();
+  if (!s) return -99;
 
   switch (sel) {
     case 0:
@@ -238,6 +239,7 @@ int32_t wc_set_options(uint32_t sel,int32_t value) {
 
 uint32_t wc_get_width(void) {
   camera_fb_t *wc_fb = esp_camera_fb_get();
+  if (!wc_fb) return 0;
   wc_width=wc_fb->width;
   esp_camera_fb_return(wc_fb);
   return wc_width;
@@ -245,6 +247,7 @@ uint32_t wc_get_width(void) {
 
 uint32_t wc_get_height(void) {
   camera_fb_t *wc_fb = esp_camera_fb_get();
+  if (!wc_fb) return 0;
   wc_height=wc_fb->height;
   esp_camera_fb_return(wc_fb);
   return wc_height;
