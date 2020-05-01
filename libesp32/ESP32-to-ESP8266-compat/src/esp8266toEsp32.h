@@ -31,6 +31,7 @@
 // Analog
 inline void analogWrite(uint8_t pin, int val)
 {
+//  ledcWrite(pin,val);
 }
 
 inline void analogWriteFreq(uint32_t freq)
@@ -38,6 +39,10 @@ inline void analogWriteFreq(uint32_t freq)
 }
 inline void analogWriteRange(uint32_t range)
 {
+}
+
+inline void analogWriteFreqRange(uint32_t channel,uint32_t freq, uint32_t range) {
+  //ledcSetup(channel,freq,range);
 }
 
 #define INPUT_PULLDOWN_16 INPUT_PULLUP
