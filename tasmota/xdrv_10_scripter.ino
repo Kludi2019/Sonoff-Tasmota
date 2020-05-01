@@ -1668,11 +1668,20 @@ chknext:
           len++;
           goto exit;
         }
+        if (!strncmp(vname,"pn[",3)) {
+          GetNumericResult(vname+3,OPER_EQU,&fvar,0);
+//          fvar=pin_gpio[(uint8_t)fvar];
+          fvar=Pin(fvar);
+          // skip ] bracket
+          len++;
+          goto exit;
+        }
         if (!strncmp(vname,"pd[",3)) {
           GetNumericResult(vname+3,OPER_EQU,&fvar,0);
           uint8_t gpiopin=fvar;
-#ifdef LEGACY_GPIO_ARRAY
+/*
           for (uint8_t i=0;i<GPIO_SENSOR_END;i++) {
+//            if (pin_gpio[i]==gpiopin) {
             if (Pin(i)==gpiopin) {
               fvar=i;
               // skip ] bracket
@@ -1680,14 +1689,13 @@ chknext:
               goto exit;
             }
           }
-#else
-          if ((gpiopin < ARRAY_SIZE(pin)) && (gpio_pin[gpiopin] > 0)) {
+*/
+          if ((gpiopin < ARRAY_SIZE(gpio_pin)) && (gpio_pin[gpiopin] > 0)) {
             fvar = gpio_pin[gpiopin];
             // skip ] bracket
             len++;
             goto exit;
           }
-#endif
           fvar=999;
           goto exit;
         }
@@ -5108,8 +5116,8 @@ bool Xdrv10(uint8_t function)
 #else
 
 #ifdef ESP32
-      if (PinUsed(GPIO_SSPI_MOSI) && PinUsed(GPIO_SSPI_MISO) && PinUsed(GPIO_SSPI_SCLK)) {
-        SPI.begin(Pin(GPIO_SSPI_SCLK),Pin(GPIO_SSPI_MISO),Pin(GPIO_SSPI_MOSI), -1);
+      if (PinUsed(GPIO_SPI_MOSI) && PinUsed(GPIO_SPI_MISO) && PinUsed(GPIO_SPI_CLK)) {
+        SPI.begin(Pin(GPIO_SPI_CLK),Pin(GPIO_SPI_MISO),Pin(GPIO_SPI_MOSI), -1);
       }
 #endif
       if (FS_USED.begin(USE_SCRIPT_FATFS)) {
