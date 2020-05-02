@@ -2935,6 +2935,21 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
             }
 #endif
 #endif
+#ifdef ESP32
+            else if (!strncmp(lp,"beep(",5)) {
+              lp+=5;
+              lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
+              if (fvar<0) {
+                ledcSetup(7,500,10);
+                ledcAttachPin(-fvar,7);
+                ledcWriteTone(7,0);
+              } else {
+                ledcWriteTone(7,fvar);
+              }
+              lp++;
+              goto next_line;
+            }
+#endif
 
             else if (!strncmp(lp,"=>",2) || !strncmp(lp,"->",2) || !strncmp(lp,"+>",2) || !strncmp(lp,"print",5)) {
                 // execute cmd

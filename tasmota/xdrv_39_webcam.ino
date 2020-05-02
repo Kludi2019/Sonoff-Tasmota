@@ -504,11 +504,16 @@ void CamHandleRoot(void) {
 uint16_t motion_detect;
 uint32_t motion_ltime;
 uint32_t motion_trigger;
+uint32_t motion_brightness;
 uint8_t *last_motion_buffer;
 
 uint32_t wc_set_motion_detect(int32_t value) {
   if (value>=0) motion_detect=value;
-  return motion_trigger;
+  if (value==-1) {
+    return motion_trigger;
+  } else {
+    return motion_brightness;
+  }
 }
 
 // optional motion detector
@@ -534,6 +539,7 @@ uint8_t *out_buf=0;
           uint8_t *pxr=last_motion_buffer;
           // convert to bw
           uint64_t accu=0;
+          uint64_t bright=0;
           for (y=0;y<wc_fb->height;y++) {
             for (x=0;x<wc_fb->width;x++) {
               int32_t gray=(pxi[0]+pxi[1]+pxi[2])/3;
@@ -542,9 +548,11 @@ uint8_t *out_buf=0;
               pxi+=3;
               pxr++;
               accu+=abs(gray-lgray);
+              bright+=gray;
             }
           }
           motion_trigger=accu/((wc_fb->height*wc_fb->width)/100);
+          motion_brightness=bright/((wc_fb->height*wc_fb->width)/100);
           free(out_buf);
         }
       }
