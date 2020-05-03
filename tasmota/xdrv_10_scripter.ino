@@ -70,8 +70,10 @@ uint32_t DecodeLightId(uint32_t hue_id);
 
 #include "FS.h"
 #include "SPIFFS.h"
+
+
 void SaveFile(const char *name,const uint8_t *buf,uint32_t len) {
-  File file = SPIFFS.open(name, FILE_WRITE);
+  File file = SPIFFS.open(name,FILE_WRITE);
   if (!file) return;
   file.write(buf, len);
   file.close();
