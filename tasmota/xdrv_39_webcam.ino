@@ -673,7 +673,7 @@ void CmndWC(void) {
   uint32_t flag = 0;
   if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload <= 10)) {
     wc_set_streamserver(XdrvMailbox.payload);
-    wc_setup(flag);
+    wc_setup(XdrvMailbox.payload);
   }
   if (CamServer) { flag = 1; }
   Response_P(PSTR("{\"" D_CMND_WC "\":{\"Streaming\":\"%s\"}"),GetStateText(flag));
