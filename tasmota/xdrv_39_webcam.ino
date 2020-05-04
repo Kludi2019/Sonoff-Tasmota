@@ -39,6 +39,11 @@
  *  8 = FRAMESIZE_XGA (1024x768)
  *  9 = FRAMESIZE_SXGA (1280x1024)
  * 10 = FRAMESIZE_UXGA (1600x1200)
+
+* only boards with PSRAM should be used, to enable PSRAM  board should be se set to esp32cam in common32 of platform_override.ini
+* board                   = esp32cam
+* to speed up cam processing cpu frequency should be better set to 240Mhz in common32 of platform_override.ini
+* board_build.f_cpu       = 240000000L
 \*********************************************************************************************/
 
 #define XDRV_39                    39
