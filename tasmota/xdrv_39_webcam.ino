@@ -844,6 +844,7 @@ bool Xdrv39(uint8_t function) {
       break;
     case FUNC_WEB_ADD_MAIN_BUTTON:
       WcStreamControl(Settings.esp32_webcam_resolution);
+      wc_show_stream();
       break;
     case FUNC_COMMAND:
       result = DecodeCommand(kWCCommands, WCCommand);
