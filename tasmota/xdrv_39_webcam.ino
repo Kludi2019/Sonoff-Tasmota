@@ -53,7 +53,9 @@
 //#define USE_TEMPLATE
 
 #define WC_LOGLEVEL LOG_LEVEL_INFO
-
+#include "fb_gfx.h"
+#include "fd_forward.h"
+#include "fr_forward.h"
 
 #define PWDN_GPIO_NUM     32
 #define RESET_GPIO_NUM    -1
@@ -81,6 +83,7 @@ uint8_t wc_up;
 uint16_t wc_width;
 uint16_t wc_height;
 uint8_t wc_stream_active;
+uint8_t faces;
 
 uint32_t wc_setup(int32_t fsiz) {
   if (fsiz > 10) { fsiz = 10; }
@@ -441,6 +444,124 @@ void handleMjpeg(void) {
   //}
 }
 
+static mtmn_config_t mtmn_config = {0};
+static int8_t detection_enabled = 1;
+
+void fd_init(void) {
+  mtmn_config.type = FAST;
+  mtmn_config.min_face = 80;
+  mtmn_config.pyramid = 0.707;
+  mtmn_config.pyramid_times = 4;
+  mtmn_config.p_threshold.score = 0.6;
+  mtmn_config.p_threshold.nms = 0.7;
+  mtmn_config.p_threshold.candidate_number = 20;
+  mtmn_config.r_threshold.score = 0.7;
+  mtmn_config.r_threshold.nms = 0.7;
+  mtmn_config.r_threshold.candidate_number = 10;
+  mtmn_config.o_threshold.score = 0.7;
+  mtmn_config.o_threshold.nms = 0.7;
+  mtmn_config.o_threshold.candidate_number = 1;
+}
+
+#define FACE_COLOR_WHITE  0x00FFFFFF
+#define FACE_COLOR_BLACK  0x00000000
+#define FACE_COLOR_RED    0x000000FF
+#define FACE_COLOR_GREEN  0x0000FF00
+#define FACE_COLOR_BLUE   0x00FF0000
+#define FACE_COLOR_YELLOW (FACE_COLOR_RED | FACE_COLOR_GREEN)
+#define FACE_COLOR_CYAN   (FACE_COLOR_BLUE | FACE_COLOR_GREEN)
+#define FACE_COLOR_PURPLE (FACE_COLOR_BLUE | FACE_COLOR_RED)
+void draw_face_boxes(dl_matrix3du_t *image_matrix, box_array_t *boxes, int face_id);
+
+/*
+void draw_face_boxes(dl_matrix3du_t *image_matrix, box_array_t *boxes, int face_id) {
+    int x, y, w, h, i;
+    uint32_t color = FACE_COLOR_YELLOW;
+    if(face_id < 0){
+        color = FACE_COLOR_RED;
+    } else if(face_id > 0){
+        color = FACE_COLOR_GREEN;
+    }
+    fb_data_t fb;
+    fb.width = image_matrix->w;
+    fb.height = image_matrix->h;
+    fb.data = image_matrix->item;
+    fb.bytes_per_pixel = 3;
+    fb.format = FB_BGR888;
+    for (i = 0; i < boxes->len; i++){
+        // rectangle box
+        x = (int)boxes->box[i].box_p[0];
+        y = (int)boxes->box[i].box_p[1];
+        w = (int)boxes->box[i].box_p[2] - x + 1;
+        h = (int)boxes->box[i].box_p[3] - y + 1;
+        fb_gfx_drawFastHLine(&fb, x, y, w, color);
+        fb_gfx_drawFastHLine(&fb, x, y+h-1, w, color);
+        fb_gfx_drawFastVLine(&fb, x, y, h, color);
+        fb_gfx_drawFastVLine(&fb, x+w-1, y, h, color);
+#if 0
+        // landmark
+        int x0, y0, j;
+        for (j = 0; j < 10; j+=2) {
+            x0 = (int)boxes->landmark[i].landmark_p[j];
+            y0 = (int)boxes->landmark[i].landmark_p[j+1];
+            fb_gfx_fillRect(&fb, x0, y0, 3, 3, color);
+        }
+#endif
+    }
+}
+*/
+
+#define DL_SPIRAM_SUPPORT
+
+uint32_t detect_face(camera_fb_t *fb);
+
+uint32_t detect_face(camera_fb_t *fb) {
+dl_matrix3du_t *image_matrix;
+size_t out_len, out_width, out_height;
+uint8_t * out_buf;
+bool s;
+bool detected = false;
+int face_id = 0;
+
+  image_matrix = dl_matrix3du_alloc(1, fb->width, fb->height, 3);
+  if (!image_matrix) {
+    AddLog_P2(WC_LOGLEVEL, PSTR("CAM: dl_matrix3du_alloc failed"));
+    return ESP_FAIL;
+  }
+
+  out_buf = image_matrix->item;
+  //out_len = fb->width * fb->height * 3;
+  //out_width = fb->width;
+  //out_height = fb->height;
+
+  s = fmt2rgb888(fb->buf, fb->len, fb->format, out_buf);
+  //esp_camera_fb_return(fb);
+  if (!s){
+    dl_matrix3du_free(image_matrix);
+    AddLog_P2(WC_LOGLEVEL, PSTR("CAM: to rgb888 failed"));
+    return ESP_FAIL;
+  }
+
+  box_array_t *net_boxes = face_detect(image_matrix, &mtmn_config);
+  if (net_boxes){
+    detected = true;
+    faces=net_boxes->len;
+    //if(recognition_enabled){
+    //    face_id = run_face_recognition(image_matrix, net_boxes);
+    //}
+    //draw_face_boxes(image_matrix, net_boxes, face_id);
+    free(net_boxes->score);
+    free(net_boxes->box);
+    free(net_boxes->landmark);
+    free(net_boxes);
+  } else {
+    faces=0;
+  }
+  dl_matrix3du_free(image_matrix);
+  //if (detected) Serial.println("face detected");
+}
+
+
 void handleMjpeg_task(void) {
   camera_fb_t *wc_fb;
   size_t _jpg_buf_len = 0;
@@ -471,6 +592,7 @@ void handleMjpeg_task(void) {
       AddLog_P2(WC_LOGLEVEL, PSTR("CAM: Frame fail"));
       goto exit;
     }
+
 
     if (wc_fb->format != PIXFORMAT_JPEG) {
       jpeg_converted = frame2jpg(wc_fb, 80, &_jpg_buf, &_jpg_buf_len);
@@ -538,8 +660,10 @@ uint32_t wc_set_motion_detect(int32_t value) {
   if (value >= 0) { motion_detect=value; }
   if (-1 == value) {
     return motion_trigger;
-  } else {
+  } else if (-2 == value) {
     return motion_brightness;
+  } else {
+    return faces;
   }
 }
 
@@ -558,6 +682,7 @@ void detect_motion(void) {
     }
     if (last_motion_buffer) {
       if (PIXFORMAT_JPEG == wc_fb->format) {
+        if (detection_enabled) { detect_face(wc_fb); }
         out_buf = (uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height*3)+4, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (out_buf) {
           fmt2rgb888(wc_fb->buf, wc_fb->len, wc_fb->format, out_buf);
@@ -611,6 +736,7 @@ uint32_t wc_set_streamserver(uint32_t flag) {
       CamServer->on("/stream", handleMjpeg);
       AddLog_P2(WC_LOGLEVEL, PSTR("CAM: Stream init"));
       CamServer->begin();
+      fd_init();
     }
   } else {
     if (CamServer) {
