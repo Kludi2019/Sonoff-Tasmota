@@ -84,6 +84,7 @@ uint16_t wc_width;
 uint16_t wc_height;
 uint8_t wc_stream_active;
 uint8_t faces;
+int8_t detection_enabled = 0;
 
 uint32_t wc_setup(int32_t fsiz) {
   if (fsiz > 10) { fsiz = 10; }
@@ -266,6 +267,10 @@ int32_t wc_set_options(uint32_t sel, int32_t value) {
       if (value >= -4) { s->set_saturation(s,value); }
       res = s->status.saturation;
       break;
+    case 7:
+      if (value >= 0) { detection_enabled=value; }
+        res = detection_enabled;
+        break;
   }
 
   return res;
@@ -445,7 +450,7 @@ void handleMjpeg(void) {
 }
 
 static mtmn_config_t mtmn_config = {0};
-static int8_t detection_enabled = 1;
+
 
 void fd_init(void) {
   mtmn_config.type = FAST;
@@ -646,7 +651,6 @@ void CamHandleRoot(void) {
   //CamServer->redirect("http://" + String(ip) + ":81/cam.mjpeg");
   CamServer->sendHeader("Location", WiFi.localIP().toString() + ":81/cam.mjpeg");
   CamServer->send(302, "", "");
-  //Serial.printf("WC root called");
   AddLog_P2(WC_LOGLEVEL, PSTR("CAM: root called"));
 }
 
@@ -716,8 +720,8 @@ void detect_motion(void) {
 void wc_show_stream(void) {
 #ifndef USE_SCRIPT
   if (CamServer) {
-    WSContentSend_P(PSTR("<p><center><img src='http://%s:81/stream' alt='Webcam stream' style='width:99%%;'></center></p><br>"),
-      WiFi.localIP().toString().c_str());
+    WSContentSend_P(PSTR("<p></p><center><img src='http://%s:81/stream' alt='Webcam stream' style='width:99%%;'></center><p></p>"),
+         WiFi.localIP().toString().c_str());
   }
 #endif
 }
@@ -748,6 +752,12 @@ uint32_t wc_set_streamserver(uint32_t flag) {
   }
   return 0;
 }
+
+void WcStreamControl(uint32_t resolution) {
+  wc_set_streamserver(resolution);
+  wc_setup(resolution);
+}
+
 
 void wc_loop(void) {
   if (CamServer) { CamServer->handleClient(); }
@@ -787,29 +797,35 @@ flash led = gpio4
 red led = gpio 33
 */
 
+void WcInit(void) {
+  if (Settings.esp32_webcam_resolution > 10) {
+    Settings.esp32_webcam_resolution = 0;
+  }
+}
+
+
 /*********************************************************************************************\
  * Commands
 \*********************************************************************************************/
 
-#define D_CMND_WC "Webcam"
+#define D_CMND_WEBCAM "Webcam"
 
 const char kWCCommands[] PROGMEM =  "|"    // no prefix
-  D_CMND_WC
+  D_CMND_WEBCAM
   ;
 
 void (* const WCCommand[])(void) PROGMEM = {
-  &CmndWC,
+  &CmndWebcam,
   };
 
-void CmndWC(void) {
+void CmndWebcam(void) {
   uint32_t flag = 0;
   if ((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload <= 10)) {
     Settings.esp32_webcam_resolution=XdrvMailbox.payload;
-    wc_set_streamserver(XdrvMailbox.payload);
-    wc_setup(XdrvMailbox.payload);
+    WcStreamControl(Settings.esp32_webcam_resolution);
   }
   if (CamServer) { flag = 1; }
-  Response_P(PSTR("{\"" D_CMND_WC "\":{\"Streaming\":\"%s\"}"),GetStateText(flag));
+  Response_P(PSTR("{\"" D_CMND_WEBCAM "\":{\"Streaming\":\"%s\"}"),GetStateText(flag));
 }
 
 /*********************************************************************************************\
@@ -827,11 +843,15 @@ bool Xdrv39(uint8_t function) {
       wc_pic_setup();
       break;
     case FUNC_WEB_ADD_MAIN_BUTTON:
-      wc_show_stream();
+      WcStreamControl(Settings.esp32_webcam_resolution);
       break;
     case FUNC_COMMAND:
       result = DecodeCommand(kWCCommands, WCCommand);
       break;
+    case FUNC_PRE_INIT:
+      WcInit();
+      break;
+
   }
   return result;
 }
