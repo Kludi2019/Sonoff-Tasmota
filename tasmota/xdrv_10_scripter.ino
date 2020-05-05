@@ -5241,7 +5241,9 @@ bool Xdrv10(uint8_t function)
       break;
 #ifdef USE_SCRIPT_WEB_DISPLAY
     case FUNC_WEB_ADD_MAIN_BUTTON:
-      ScriptWebShow('&');
+      if (bitRead(Settings.rule_enabled, 0)) {
+        ScriptWebShow('&');
+      }
       break;
 #endif // USE_SCRIPT_WEB_DISPLAY
     case FUNC_WEB_ADD_HANDLER:
