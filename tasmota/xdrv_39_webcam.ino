@@ -863,8 +863,10 @@ bool Xdrv39(uint8_t function) {
       break;
     case FUNC_WEB_ADD_MAIN_BUTTON:
      //if (Settings.esp32_webcam_resolution) {
+#ifndef USE_SCRIPT
        WcStreamControl(Settings.esp32_webcam_resolution);
        wc_show_stream();
+#endif
      //}
      break;
     case FUNC_COMMAND:

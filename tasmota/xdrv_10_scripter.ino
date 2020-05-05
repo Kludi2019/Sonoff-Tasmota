@@ -2049,6 +2049,7 @@ chknext:
                 lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
                 fvar=wc_set_motion_detect(fvar2);
               }
+              break;
 #ifdef USE_FACE_DETECT
             case 7:
               { float fvar2;
@@ -5232,10 +5233,11 @@ bool Xdrv10(uint8_t function)
     case FUNC_WEB_ADD_BUTTON:
       WSContentSend_P(HTTP_BTN_MENU_RULES);
       break;
+#ifdef USE_SCRIPT_WEB_DISPLAY
     case FUNC_WEB_ADD_MAIN_BUTTON:
       ScriptWebShow('&');
       break;
-
+#endif
     case FUNC_WEB_ADD_HANDLER:
       Webserver->on("/" WEB_HANDLE_SCRIPT, HandleScriptConfiguration);
       Webserver->on("/ta",HTTP_POST, HandleScriptTextareaConfiguration);
