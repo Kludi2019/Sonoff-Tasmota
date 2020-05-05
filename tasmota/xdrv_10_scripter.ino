@@ -2049,8 +2049,14 @@ chknext:
                 lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
                 fvar=wc_set_motion_detect(fvar2);
               }
+#ifdef USE_FACE_DETECT
+            case 7:
+              { float fvar2;
+                lp=GetNumericResult(lp,OPER_EQU,&fvar2,0);
+                fvar=wc_set_face_detect(fvar2);
+              }
               break;
-
+#endif
             default:
               fvar=0;
           }

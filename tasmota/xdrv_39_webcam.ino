@@ -83,8 +83,10 @@ uint8_t wc_up;
 uint16_t wc_width;
 uint16_t wc_height;
 uint8_t wc_stream_active;
+#ifdef USE_FACE_DETECT
 uint8_t faces;
-int8_t detection_enabled = 0;
+uint16_t face_detect_time;
+#endif
 
 uint32_t wc_setup(int32_t fsiz) {
   if (fsiz > 10) { fsiz = 10; }
@@ -93,11 +95,13 @@ uint32_t wc_setup(int32_t fsiz) {
 
   if (fsiz < 0) {
     esp_camera_deinit();
+    wc_up = 0;
     return 0;
   }
 
   if (wc_up) {
     esp_camera_deinit();
+    AddLog_P2(WC_LOGLEVEL, PSTR("CAM: deinit"));
     //return wc_up;
   }
 
@@ -225,6 +229,11 @@ uint32_t wc_setup(int32_t fsiz) {
   wc_height = wc_fb->height;
   esp_camera_fb_return(wc_fb);
 
+
+#ifdef USE_FACE_DETECT
+  fd_init();
+#endif
+
   AddLog_P2(WC_LOGLEVEL, PSTR("CAM: Initialized"));
 
   wc_up = 1;
@@ -267,10 +276,6 @@ int32_t wc_set_options(uint32_t sel, int32_t value) {
       if (value >= -4) { s->set_saturation(s,value); }
       res = s->status.saturation;
       break;
-    case 7:
-      if (value >= 0) { detection_enabled=value; }
-        res = detection_enabled;
-        break;
   }
 
   return res;
@@ -451,7 +456,7 @@ void handleMjpeg(void) {
 
 static mtmn_config_t mtmn_config = {0};
 
-
+#ifdef USE_FACE_DETECT
 void fd_init(void) {
   mtmn_config.type = FAST;
   mtmn_config.min_face = 80;
@@ -518,54 +523,69 @@ void draw_face_boxes(dl_matrix3du_t *image_matrix, box_array_t *boxes, int face_
 
 #define DL_SPIRAM_SUPPORT
 
-uint32_t detect_face(camera_fb_t *fb);
+uint32_t wc_set_face_detect(int32_t value) {
+  if (value >= 0) { face_detect_time=value; }
+  return faces;
+}
 
-uint32_t detect_face(camera_fb_t *fb) {
+uint32_t face_ltime;
+
+uint32_t detect_face(void);
+
+uint32_t detect_face(void) {
 dl_matrix3du_t *image_matrix;
 size_t out_len, out_width, out_height;
 uint8_t * out_buf;
 bool s;
 bool detected = false;
 int face_id = 0;
+camera_fb_t *fb;
 
-  image_matrix = dl_matrix3du_alloc(1, fb->width, fb->height, 3);
-  if (!image_matrix) {
-    AddLog_P2(WC_LOGLEVEL, PSTR("CAM: dl_matrix3du_alloc failed"));
-    return ESP_FAIL;
-  }
+  if ((millis()-face_ltime) > face_detect_time) {
+    face_ltime = millis();
+    fb = esp_camera_fb_get();
+    if (!fb) { return ESP_FAIL; }
 
-  out_buf = image_matrix->item;
-  //out_len = fb->width * fb->height * 3;
-  //out_width = fb->width;
-  //out_height = fb->height;
+    image_matrix = dl_matrix3du_alloc(1, fb->width, fb->height, 3);
+    if (!image_matrix) {
+      AddLog_P2(WC_LOGLEVEL, PSTR("CAM: dl_matrix3du_alloc failed"));
+      esp_camera_fb_return(fb);
+      return ESP_FAIL;
+    }
 
-  s = fmt2rgb888(fb->buf, fb->len, fb->format, out_buf);
-  //esp_camera_fb_return(fb);
-  if (!s){
+    out_buf = image_matrix->item;
+    //out_len = fb->width * fb->height * 3;
+    //out_width = fb->width;
+    //out_height = fb->height;
+
+    s = fmt2rgb888(fb->buf, fb->len, fb->format, out_buf);
+    esp_camera_fb_return(fb);
+    if (!s){
+      dl_matrix3du_free(image_matrix);
+      AddLog_P2(WC_LOGLEVEL, PSTR("CAM: to rgb888 failed"));
+      return ESP_FAIL;
+    }
+
+    box_array_t *net_boxes = face_detect(image_matrix, &mtmn_config);
+    if (net_boxes){
+      detected = true;
+      faces=net_boxes->len;
+      //if(recognition_enabled){
+      //    face_id = run_face_recognition(image_matrix, net_boxes);
+      //}
+      //draw_face_boxes(image_matrix, net_boxes, face_id);
+      free(net_boxes->score);
+      free(net_boxes->box);
+      free(net_boxes->landmark);
+      free(net_boxes);
+    } else {
+      faces=0;
+    }
     dl_matrix3du_free(image_matrix);
-    AddLog_P2(WC_LOGLEVEL, PSTR("CAM: to rgb888 failed"));
-    return ESP_FAIL;
+    //if (detected) Serial.println("face detected");
   }
-
-  box_array_t *net_boxes = face_detect(image_matrix, &mtmn_config);
-  if (net_boxes){
-    detected = true;
-    faces=net_boxes->len;
-    //if(recognition_enabled){
-    //    face_id = run_face_recognition(image_matrix, net_boxes);
-    //}
-    //draw_face_boxes(image_matrix, net_boxes, face_id);
-    free(net_boxes->score);
-    free(net_boxes->box);
-    free(net_boxes->landmark);
-    free(net_boxes);
-  } else {
-    faces=0;
-  }
-  dl_matrix3du_free(image_matrix);
-  //if (detected) Serial.println("face detected");
 }
-
+#endif
 
 void handleMjpeg_task(void) {
   camera_fb_t *wc_fb;
@@ -664,10 +684,8 @@ uint32_t wc_set_motion_detect(int32_t value) {
   if (value >= 0) { motion_detect=value; }
   if (-1 == value) {
     return motion_trigger;
-  } else if (-2 == value) {
+  } else  {
     return motion_brightness;
-  } else {
-    return faces;
   }
 }
 
@@ -686,7 +704,6 @@ void detect_motion(void) {
     }
     if (last_motion_buffer) {
       if (PIXFORMAT_JPEG == wc_fb->format) {
-        if (detection_enabled) { detect_face(wc_fb); }
         out_buf = (uint8_t *)heap_caps_malloc((wc_fb->width*wc_fb->height*3)+4, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
         if (out_buf) {
           fmt2rgb888(wc_fb->buf, wc_fb->len, wc_fb->format, out_buf);
@@ -718,12 +735,10 @@ void detect_motion(void) {
 }
 
 void wc_show_stream(void) {
-#ifndef USE_SCRIPT
   if (CamServer) {
     WSContentSend_P(PSTR("<p></p><center><img src='http://%s:81/stream' alt='Webcam stream' style='width:99%%;'></center><p></p>"),
          WiFi.localIP().toString().c_str());
   }
-#endif
 }
 
 uint32_t wc_set_streamserver(uint32_t flag) {
@@ -740,7 +755,6 @@ uint32_t wc_set_streamserver(uint32_t flag) {
       CamServer->on("/stream", handleMjpeg);
       AddLog_P2(WC_LOGLEVEL, PSTR("CAM: Stream init"));
       CamServer->begin();
-      fd_init();
     }
   } else {
     if (CamServer) {
@@ -755,14 +769,19 @@ uint32_t wc_set_streamserver(uint32_t flag) {
 
 void WcStreamControl(uint32_t resolution) {
   wc_set_streamserver(resolution);
+  /*if (0 == resolution) {
+    resolution=-1;
+  }*/
   wc_setup(resolution);
 }
-
 
 void wc_loop(void) {
   if (CamServer) { CamServer->handleClient(); }
   if (wc_stream_active) { handleMjpeg_task(); }
   if (motion_detect) { detect_motion(); }
+#ifdef USE_FACE_DETECT
+//  if (face_detect_time) { detect_face(); }
+#endif
 }
 
 void wc_pic_setup(void) {
@@ -843,9 +862,11 @@ bool Xdrv39(uint8_t function) {
       wc_pic_setup();
       break;
     case FUNC_WEB_ADD_MAIN_BUTTON:
-      WcStreamControl(Settings.esp32_webcam_resolution);
-      wc_show_stream();
-      break;
+     //if (Settings.esp32_webcam_resolution) {
+       WcStreamControl(Settings.esp32_webcam_resolution);
+       wc_show_stream();
+     //}
+     break;
     case FUNC_COMMAND:
       result = DecodeCommand(kWCCommands, WCCommand);
       break;
