@@ -582,7 +582,8 @@ camera_fb_t *fb;
       faces=0;
     }
     dl_matrix3du_free(image_matrix);
-    //if (detected) Serial.println("face detected");
+    //Serial.printf("face detected: %d",faces);
+
   }
 }
 #endif
@@ -780,7 +781,7 @@ void wc_loop(void) {
   if (wc_stream_active) { handleMjpeg_task(); }
   if (motion_detect) { detect_motion(); }
 #ifdef USE_FACE_DETECT
-//  if (face_detect_time) { detect_face(); }
+  if (face_detect_time) { detect_face(); }
 #endif
 }
 
