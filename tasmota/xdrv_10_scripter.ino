@@ -1181,6 +1181,12 @@ chknext:
             }
           }
         }
+#ifdef ESP32
+        if (!strncmp(vname,"core",4)) {
+          fvar=xPortGetCoreID();
+          goto exit;
+        }
+#endif
         break;
       case 'd':
         if (!strncmp(vname,"day",3)) {
