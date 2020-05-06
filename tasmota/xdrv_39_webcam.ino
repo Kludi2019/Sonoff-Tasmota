@@ -464,6 +464,8 @@ void handleMjpeg(void) {
   //if (!wc_stream_active) {
     wc_stream_active = 1;
     client = CamServer->client();
+    client.flush();
+    client.setTimeout(3000);
     AddLog_P2(WC_LOGLEVEL, PSTR("CAM: Create client"));
   //}
 }
@@ -619,8 +621,8 @@ void handleMjpeg_task(void) {
   }
 
   if (1 == wc_stream_active) {
-    client.flush();
-    client.setTimeout(3);
+    //client.flush();
+    //client.setTimeout(3000);
     AddLog_P2(WC_LOGLEVEL, PSTR("CAM: Start stream"));
     client.print("HTTP/1.1 200 OK\r\n"
       "Content-Type: multipart/x-mixed-replace;boundary=" BOUNDARY "\r\n"
