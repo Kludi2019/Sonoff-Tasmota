@@ -674,6 +674,7 @@
 #define D_SENSOR_HRXL_RX       "HRXL - RX"
 #define D_SENSOR_ELECTRIQ_MOODL "MOODL - TX"
 #define D_SENSOR_AS3935        "AS3935"
+#define D_SENSOR_WINDMETER_SPEED "WindMeter Spd"
 #define D_GPIO_WEBCAM_PWDN     "CAM_PWDN"
 #define D_GPIO_WEBCAM_RESET    "CAM_RESET"
 #define D_GPIO_WEBCAM_XCLK     "CAM_XCLK"
@@ -792,5 +793,9 @@
 #define D_AS3935_OUTDOORS "Esterno"
 #define D_AS3935_CAL_FAIL "calibrazione fallita"
 #define D_AS3935_CAL_OK "calibrazione impostata a:"
+
+//xsns_68_opentherm.ino
+#define D_SENSOR_BOILER_OT_RX   "OpenTherm RX"
+#define D_SENSOR_BOILER_OT_TX   "OpenTherm TX"
 
 #endif  // _LANGUAGE_IT_IT_H_
