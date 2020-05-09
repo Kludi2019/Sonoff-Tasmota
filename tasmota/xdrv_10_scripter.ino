@@ -2116,7 +2116,7 @@ chknext:
           len=0;
           goto exit;
         }
-#endif
+#endif //ESP32, USE_WEBCAM
         if (!strncmp(vname,"wday",4)) {
           fvar=RtcTime.day_of_week;
           goto exit;
