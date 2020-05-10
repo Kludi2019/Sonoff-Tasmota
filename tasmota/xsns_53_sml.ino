@@ -1869,6 +1869,8 @@ void SML_Init(void) {
     }
   }
 
+  if (bitRead(Settings.rule_enabled, 0)) {
+
   uint8_t meter_script=Run_Scripter(">M",-2,0);
   if (meter_script==99) {
     // use script definition
@@ -2012,6 +2014,7 @@ next_line:
     *tp=0;
     meter_desc_p=script_meter_desc;
     meter_p=script_meter;
+  }
   }
 #endif
 
@@ -2412,14 +2415,18 @@ bool Xsns53(byte function) {
         break;
       case FUNC_LOOP:
         SML_Counter_Poll();
-        break;
-      case FUNC_EVERY_50_MSECOND:
         if (dump2log) Dump2log();
         else SML_Poll();
         break;
+    //  case FUNC_EVERY_50_MSECOND:
+    //    if (dump2log) Dump2log();
+    //    else SML_Poll();
+    //    break;
 #ifdef USE_SCRIPT
       case FUNC_EVERY_100_MSECOND:
-        SML_Check_Send();
+        if (bitRead(Settings.rule_enabled, 0)) {
+          SML_Check_Send();
+        }
         break;
 #endif // USE_SCRIPT
       case FUNC_JSON_APPEND:
