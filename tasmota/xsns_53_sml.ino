@@ -2072,6 +2072,7 @@ init10:
             Serial.begin(meter_desc_p[meters].params, SERIAL_8E1);
           }
           ClaimSerial();
+          Serial.setRxBufferSize(512);
         }
 
     }
