@@ -47,7 +47,7 @@
  *   on button1#state do publish cmnd/ring2/power %value% endon on button2#state do publish cmnd/strip1/power %value% endon
  *   on switch1#state do power2 %value% endon
  *   on analog#a0div10 do publish cmnd/ring2/dimmer %value% endon
- *   on root#loadavg<50 do power 2 endon
+ *   on loadavg<50 do power 2 endon
  *
  * Notes:
  *   Spaces after <on>, around <do> and before <endon> are mandatory
@@ -203,7 +203,7 @@ char rules_vars[MAX_RULE_VARS][33] = {{ 0 }};
  *      Rule[x][0] = 0,  if firmware is downgraded, the rule will be considered as empty
  *
  *      The second byte contains the size of uncompressed rule in 8-bytes blocks (i.e. (len+7)/8 )
- *      Maximum rule size si 2KB (2048 bytes per rule), although there is little chances compression ratio will go down to 75%
+ *      Maximum rule size is 2KB (2048 bytes per rule), although there is little chances compression ratio will go down to 75%
  *      Rule[x][1] = size uncompressed in dwords. If zero, the rule is empty.
  *
  *      The remaining bytes contain the compressed rule, NULL terminated
@@ -1987,17 +1987,26 @@ void CmndRule(void)
         }
         int32_t res = SetRule(index - 1, ('"' == XdrvMailbox.data[0]) ? "" : XdrvMailbox.data, append);
         if (res < 0) {
-          AddLog_P2(LOG_LEVEL_ERROR, PSTR("RUL: not enough space"));
+          AddLog_P2(LOG_LEVEL_ERROR, PSTR("RUL: Not enough space"));
         }
       }
       Rules.triggers[index -1] = 0;  // Reset once flag
     }
+    String rule = GetRule(index - 1);
+    size_t rule_len = rule.length();
+    if (rule_len >= MAX_RULE_SIZE) {
+      // we need to split the rule in chunks
+      rule = rule.substring(0, MAX_RULE_SIZE);
+      rule += F("...");
+    }
     // snprintf_P (mqtt_data, sizeof(mqtt_data), PSTR("{\"%s%d\":\"%s\",\"Once\":\"%s\",\"StopOnError\":\"%s\",\"Free\":%d,\"Rules\":\"%s\"}"),
     //   XdrvMailbox.command, index, GetStateText(bitRead(Settings.rule_enabled, index -1)), GetStateText(bitRead(Settings.rule_once, index -1)),
     //   GetStateText(bitRead(Settings.rule_stop, index -1)), sizeof(Settings.rules[index -1]) - strlen(Settings.rules[index -1]) -1, Settings.rules[index -1]);
-    snprintf_P (mqtt_data, sizeof(mqtt_data), PSTR("{\"%s%d\":\"%s\",\"Once\":\"%s\",\"StopOnError\":\"%s\",\"Free\":%d,\"Rules\":\"%s\"}"),
+    snprintf_P (mqtt_data, sizeof(mqtt_data), PSTR("{\"%s%d\":\"%s\",\"Once\":\"%s\",\"StopOnError\":\"%s\",\"Length\":%d,\"Free\":%d,\"Rules\":\"%s\"}"),
       XdrvMailbox.command, index, GetStateText(bitRead(Settings.rule_enabled, index -1)), GetStateText(bitRead(Settings.rule_once, index -1)),
-      GetStateText(bitRead(Settings.rule_stop, index -1)), sizeof(Settings.rules[0]) - GetRuleLenStorage(index - 1), GetRule(index - 1).c_str());
+      GetStateText(bitRead(Settings.rule_stop, index -1)),
+      rule_len, MAX_RULE_SIZE - GetRuleLenStorage(index - 1),
+      escapeJSONString(rule.c_str()).c_str());
   }
 }
 
