@@ -447,7 +447,7 @@ void HandleImage(void) {
     len = wc_get_jpeg(&buff);
     if (len) {
       client.write(buff,len);
-      free(buff);  // Buffer has been freed already in wc_get_jpeg so this will cause exceptions
+      //free(buff);  // Buffer has been freed already in wc_get_jpeg so this will cause exceptions
     }
   } else {
     bnum--;
