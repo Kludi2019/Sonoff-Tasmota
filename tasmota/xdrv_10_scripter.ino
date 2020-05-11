@@ -2740,11 +2740,12 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
     }
 
     JsonObject  *jo=0;
-
+    DynamicJsonBuffer jsonBuffer; // on heap
+    JsonObject &jobj=jsonBuffer.parseObject(js);
     if (js) {
-      DynamicJsonBuffer jsonBuffer; // on heap
-      JsonObject &jobj=jsonBuffer.parseObject(js);
       jo=&jobj;
+    } else {
+      jo=0;
     }
 
     char *lp=glob_script_mem.scriptptr;
