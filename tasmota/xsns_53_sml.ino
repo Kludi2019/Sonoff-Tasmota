@@ -45,7 +45,9 @@
 #include <TasmotaSerial.h>
 
 // use special no wait serial driver, should be always on
+#ifndef ESP32
 #define SPECIAL_SS
+#endif
 
 // addresses a bug in meter DWS74
 //#define DWS74_BUG

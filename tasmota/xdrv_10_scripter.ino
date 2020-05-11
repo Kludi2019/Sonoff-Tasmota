@@ -2689,7 +2689,9 @@ void esp32_beep(int32_t freq ,uint32_t len) {
     ledcSetup(7,500,10);
     ledcAttachPin(-freq,7);
     ledcWriteTone(7,0);
-    beep_th = xTimerCreate("beep",100,pdFALSE,( void * ) 0,StopBeep);
+    if (!beep_th) {
+      beep_th = xTimerCreate("beep",100,pdFALSE,( void * ) 0,StopBeep);
+    }
   } else {
     if (!beep_th) return;
     if (!freq) {
