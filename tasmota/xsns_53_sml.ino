@@ -2023,11 +2023,12 @@ next_line:
 #endif
 
 init10:
+/*
   uint32_t cnt;
   for (cnt=0; cnt<meters_used; cnt++) {
     AddLog_P2(LOG_LEVEL_INFO, PSTR("%d - %d - %d - %d - %s"),script_meter_desc[cnt].srcpin,script_meter_desc[cnt].type,script_meter_desc[cnt].flag,\
   script_meter_desc[cnt].params,script_meter_desc[cnt].prefix);
-  }
+}*/
 /*
   uint8_t srcpin;
   uint8_t type;
