@@ -347,7 +347,9 @@ void SleepDelay(uint32_t mseconds) {
   if (mseconds) {
     for (uint32_t wait = 0; wait < mseconds; wait++) {
       delay(1);
-      if (Serial.available()) { break; }  // We need to service serial buffer ASAP as otherwise we get uart buffer overrun
+      if (!serial_local) {
+        if (Serial.available()) { break; }  // We need to service serial buffer ASAP as otherwise we get uart buffer overrun
+      }
     }
   } else {
     delay(0);
