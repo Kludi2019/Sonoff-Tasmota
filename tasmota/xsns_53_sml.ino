@@ -442,7 +442,9 @@ const uint8_t meter[]=
 #endif
 
 // max number of meters , may be adjusted
+#ifndef MAX_METERS
 #define MAX_METERS 5
+#endif
 double meter_vars[SML_MAX_VARS];
 // calulate deltas
 #define MAX_DVARS MAX_METERS*2
@@ -1875,7 +1877,7 @@ void SML_Init(void) {
         delete meter_ss[cnt];
         meter_ss[cnt]=NULL;
     }
-    
+
   }
 
   if (bitRead(Settings.rule_enabled, 0)) {
