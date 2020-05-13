@@ -2869,7 +2869,11 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                   lp=GetNumericResult(lp,OPER_EQU,&cv_inc,0);
                   //SCRIPT_SKIP_EOL
                   cv_ptr=lp;
-                  floop=1;
+                  if (*cv_count<cv_max) {
+                    floop=1;
+                  } else {
+                    floop=2;
+                  }
               } else {
                       // error
                   toLogEOL("for error",lp);
@@ -2877,11 +2881,20 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
             } else if (!strncmp(lp,"next",4) && floop>0) {
               // for next loop
               *cv_count+=cv_inc;
-              if (*cv_count<=cv_max) {
-                lp=cv_ptr;
+              if (floop==1) {
+                if (*cv_count<=cv_max) {
+                  lp=cv_ptr;
+                } else {
+                  lp+=4;
+                  floop=0;
+                }
               } else {
-                lp+=4;
-                floop=0;
+                if (*cv_count>=cv_max) {
+                  lp=cv_ptr;
+                } else {
+                  lp+=4;
+                  floop=0;
+                }
               }
             }
 
