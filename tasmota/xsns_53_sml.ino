@@ -1867,10 +1867,15 @@ void SML_Init(void) {
   for (uint32_t cnt=0;cnt<MAX_METERS;cnt++) {
     if (script_meter_desc[cnt].txmem) {
      free(script_meter_desc[cnt].txmem);
-     script_meter_desc[cnt].txmem=0;
     }
     script_meter_desc[cnt].txmem=0;
     script_meter_desc[cnt].trxpin=-1;
+
+    if (meter_ss[cnt]) {
+        delete meter_ss[cnt];
+        meter_ss[cnt]=NULL;
+    }
+    
   }
 
   if (bitRead(Settings.rule_enabled, 0)) {
@@ -2023,25 +2028,6 @@ next_line:
 #endif
 
 init10:
-/*
-  uint32_t cnt;
-  for (cnt=0; cnt<meters_used; cnt++) {
-    AddLog_P2(LOG_LEVEL_INFO, PSTR("%d - %d - %d - %d - %s"),script_meter_desc[cnt].srcpin,script_meter_desc[cnt].type,script_meter_desc[cnt].flag,\
-  script_meter_desc[cnt].params,script_meter_desc[cnt].prefix);
-}*/
-/*
-  uint8_t srcpin;
-  uint8_t type;
-  uint16_t flag;
-  int32_t params;
-  char prefix[8];
-  int8_t trxpin;
-  uint8_t tsecs;
-  char *txmem;
-  uint8_t index;
-  uint8_t max_index;
-  */
-
   typedef void (*function)();
   function counter_callbacks[] = {SML_CounterUpd1,SML_CounterUpd2,SML_CounterUpd3,SML_CounterUpd4};
   uint8_t cindex=0;
