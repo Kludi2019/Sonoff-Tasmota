@@ -2158,11 +2158,10 @@ init10:
 #endif
 
 #ifdef ESP32
-
         if (meter_desc_p[meters].type=='M') {
-          meter_ss[meters]->begin(meter_desc_p[meters].params, SERIAL_8E1);
+          meter_ss[meters]->begin(meter_desc_p[meters].params, SERIAL_8E1,meter_desc_p[meters].srcpin,meter_desc_p[meters].trxpin);
         } else {
-          meter_ss[meters]->begin(meter_desc_p[meters].params);
+          meter_ss[meters]->begin(meter_desc_p[meters].params,SERIAL_8N1,meter_desc_p[meters].srcpin,meter_desc_p[meters].trxpin);
         }
 #else
         if (meter_ss[meters]->begin(meter_desc_p[meters].params)) {
