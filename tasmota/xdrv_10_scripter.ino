@@ -641,13 +641,14 @@ char *script;
 
 #ifdef USE_LIGHT
 #ifdef USE_WS2812
-void ws2812_set_array(float *array ,uint8_t len) {
+void ws2812_set_array(float *array ,uint32_t len, uint32_t offset) {
 
   Ws2812ForceSuspend();
-  for (uint8_t cnt=0;cnt<len;cnt++) {
-    if (cnt>Settings.light_pixels) break;
+  for (uint32_t cnt=0;cnt<len;cnt++) {
+    uint32_t index=cnt+offset;
+    if (index>Settings.light_pixels) break;
     uint32_t col=array[cnt];
-    Ws2812SetColor(cnt+1,col>>16,col>>8,col,0);
+    Ws2812SetColor(index+1,col>>16,col>>8,col,0);
   }
   Ws2812ForceUpdate();
 }
@@ -3024,6 +3025,12 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
               lp+=7;
               lp=isvar(lp,&vtype,&ind,0,0,0);
               if (vtype!=VAR_NV) {
+                SCRIPT_SKIP_SPACES
+                if (*lp!=')') {
+                  lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
+                } else {
+                  fvar=0;
+                }
                 // found variable as result
                 uint8_t index=glob_script_mem.type[ind.index].index;
                 if ((vtype&STYPE)==0) {
@@ -3032,7 +3039,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                     uint8_t len=0;
                     float *fa=Get_MFAddr(index,&len);
                     //Serial.printf(">> 2 %d\n",(uint32_t)*fa);
-                    if (fa && len) ws2812_set_array(fa,len);
+                    if (fa && len) ws2812_set_array(fa,len,fvar);
                   }
                 }
               }
