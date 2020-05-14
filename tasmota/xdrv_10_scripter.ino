@@ -2444,7 +2444,7 @@ char *ForceStringVar(char *lp,char *dstr) {
 }
 
 // replace vars in cmd %var%
-void Replace_Cmd_Vars(char *srcbuf,char *dstbuf,uint16_t dstsize) {
+void Replace_Cmd_Vars(char *srcbuf,uint32_t srcsize, char *dstbuf,uint32_t dstsize) {
     char *cp;
     uint16_t count;
     uint8_t vtype;
@@ -2455,6 +2455,7 @@ void Replace_Cmd_Vars(char *srcbuf,char *dstbuf,uint16_t dstsize) {
     char string[SCRIPT_MAXSSIZE];
     dstsize-=2;
     for (count=0;count<dstsize;count++) {
+        if (srcsize && (*cp==SCRIPT_EOL)) break;
         if (*cp=='%') {
             cp++;
             if (*cp=='%') {
@@ -3082,7 +3083,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                   //AddLog_P(LOG_LEVEL_INFO, tmp);
                   // replace vars in cmd
                   char *tmp=cmdmem+SCRIPT_CMDMEM/2;
-                  Replace_Cmd_Vars(cmd,tmp,SCRIPT_CMDMEM/2);
+                  Replace_Cmd_Vars(cmd,0,tmp,SCRIPT_CMDMEM/2);
                   //toSLog(tmp);
 
                   if (!strncmp(tmp,"print",5) || pflg) {
@@ -4211,7 +4212,7 @@ void Script_Check_Hue(String *response) {
         }
         cp++;
       }
-      Replace_Cmd_Vars(line,tmp,sizeof(tmp));
+      Replace_Cmd_Vars(line,0,tmp,sizeof(tmp));
       // check for hue defintions
       // NAME, TYPE , vars
       cp=tmp;
@@ -5056,7 +5057,7 @@ void ScriptWebShow(char mc) {
           WSContentSend_PD(SCRIPT_MSG_NUMINP,label,minstr,maxstr,stepstr,vstr,vname);
 
         } else {
-          Replace_Cmd_Vars(lin,tmp,sizeof(tmp));
+          Replace_Cmd_Vars(lin,0,tmp,sizeof(tmp));
           if (optflg) {
             WSContentSend_PD(PSTR("<div>%s</div>"),tmp);
           } else {
@@ -5065,7 +5066,7 @@ void ScriptWebShow(char mc) {
         }
         } else {
           if (*lin==mc) {
-            Replace_Cmd_Vars(lin+1,tmp,sizeof(tmp));
+            Replace_Cmd_Vars(lin+1,0,tmp,sizeof(tmp));
             WSContentSend_PD(PSTR("%s"),tmp);
           }
         }
@@ -5110,7 +5111,7 @@ uint8_t msect=Run_Scripter(">m",-2,0);
           }
           cp++;
         }
-        Replace_Cmd_Vars(line,tmp,sizeof(tmp));
+        Replace_Cmd_Vars(line,0,tmp,sizeof(tmp));
         //client->println(tmp);
         func(tmp);
       }
@@ -5155,7 +5156,7 @@ void ScriptJsonAppend(void) {
           }
           cp++;
         }
-        Replace_Cmd_Vars(line,tmp,sizeof(tmp));
+        Replace_Cmd_Vars(line,0,tmp,sizeof(tmp));
         ResponseAppend_P(PSTR("%s"),tmp);
       }
       if (*lp==SCRIPT_EOL) {

@@ -1843,46 +1843,34 @@ uint8_t *script_meter;
 #define METER_DEF_SIZE 3000
 #endif
 
-//#define SML_REPLACE_VARS
+
 
 #ifdef SML_REPLACE_VARS
 
 #define SML_SRCBSIZE 256
 
-char *SML_getline(char *tp,char *lp) {
-uint32_t index=0;
-char *clp=lp;
-  while (1) {
-    if ((*lp==0) || (*lp==SCRIPT_EOL && *(lp+1)=='#')) {
-      *tp=0;
-      return 0;
-    }
-    if (*lp==SCRIPT_EOL) {
-      *tp=0;
-      lp++;
-      break;
-    }
-    *tp++=*lp++;
-    index++;
-    if (index>=SML_SRCBSIZE-1) {
-      *tp=0;
+uint32_t SML_getlinelen(char *lp) {
+uint32_t cnt;
+  for (cnt=0; cnt<SML_SRCBSIZE-1; cnt++) {
+    if (lp[cnt]==SCRIPT_EOL) {
       break;
     }
   }
-  return lp;
+  return cnt;
 }
 
 uint32_t SML_getscriptsize(char *lp) {
 uint32_t mlen=0;
-char strbuf[SML_SRCBSIZE];
 char dstbuf[SML_SRCBSIZE*2];
   while (1) {
-    lp=SML_getline(strbuf,lp);
-    Replace_Cmd_Vars(strbuf,dstbuf,sizeof(dstbuf));
+    Replace_Cmd_Vars(lp,1,dstbuf,sizeof(dstbuf));
+    lp+=SML_getlinelen(lp)+1;
     uint32_t slen=strlen(dstbuf);
     //AddLog_P2(LOG_LEVEL_INFO, PSTR("%d - %s"),slen,dstbuf);
     mlen+=slen+1;
-    if (!lp) break;
+    if (*lp=='#') break;
+    if (*lp=='>') break;
+    if (*lp==0) break;
   }
   //AddLog_P2(LOG_LEVEL_INFO, PSTR("len=%d"),mlen);
   return mlen+32;
@@ -2055,6 +2043,30 @@ dddef_exit:
           goto next_line;
         }
 
+#ifdef SML_REPLACE_VARS
+        char dstbuf[SML_SRCBSIZE*2];
+        Replace_Cmd_Vars(lp,1,dstbuf,sizeof(dstbuf));
+        lp+=SML_getlinelen(lp);
+        //AddLog_P2(LOG_LEVEL_INFO, PSTR("%s"),dstbuf);
+        char *lp1=dstbuf;
+        if (*lp1=='-' || isdigit(*lp1)) {
+          //toLogEOL(">>",lp);
+          // add meters line -1,1-0:1.8.0*255(@10000,H2OIN,cbm,COUNTER,4|
+          if (*lp1=='-') lp1++;
+          uint8_t mnum=strtol(lp1,0,10);
+          if (mnum<1 || mnum>meters_used) goto next_line;
+          while (1) {
+            if (*lp1==0) {
+              *tp++='|';
+              goto next_line;
+            }
+            *tp++=*lp1++;
+            index++;
+            if (index>=METER_DEF_SIZE) break;
+          }
+        }
+#else
+
         if (*lp=='-' || isdigit(*lp)) {
           //toLogEOL(">>",lp);
           // add meters line -1,1-0:1.8.0*255(@10000,H2OIN,cbm,COUNTER,4|
@@ -2071,6 +2083,7 @@ dddef_exit:
             if (index>=METER_DEF_SIZE) break;
           }
         }
+#endif
 
       }
 
