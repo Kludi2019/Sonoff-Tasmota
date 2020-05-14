@@ -2367,6 +2367,11 @@ void SML_Send_Seq(uint32_t meter,char *seq) {
   uint8_t sbuff[32];
   uint8_t *ucp=sbuff,slen=0;
   char *cp=seq;
+  uint8_t rflg = 0;
+  if (*cp=='r') {
+    rflg = 1;
+    cp++;
+  }
   while (*cp) {
     if (!*cp || !*(cp+1)) break;
     if (*cp==',') break;
@@ -2377,8 +2382,10 @@ void SML_Send_Seq(uint32_t meter,char *seq) {
     if (slen>=sizeof(sbuff)) break;
   }
   if (script_meter_desc[meter].type=='m' || script_meter_desc[meter].type=='M') {
-    *ucp++=0;
-    *ucp++=2;
+    if (!rflg) {
+      *ucp++=0;
+      *ucp++=2;
+    }
     // append crc
     uint16_t crc = MBUS_calculateCRC(sbuff,6);
     *ucp++=lowByte(crc);
