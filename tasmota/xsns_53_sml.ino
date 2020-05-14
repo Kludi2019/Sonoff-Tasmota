@@ -457,7 +457,11 @@ const uint8_t *meter_p;
 uint8_t meter_spos[MAX_METERS];
 
 // software serial pointers
+#ifdef ESP32
+HardwareSerial *meter_ss[MAX_METERS];
+#else
 TasmotaSerial *meter_ss[MAX_METERS];
+#endif
 
 // serial buffers, may be made larger depending on telegram lenght
 #define SML_BSIZ 48
@@ -778,18 +782,21 @@ uint8_t dump2log=0;
 bool Serial_available() {
   uint8_t num=dump2log&7;
   if (num<1 || num>meters_used) num=1;
+  if (!meter_ss[num-1]) return 0;
   return meter_ss[num-1]->available();
 }
 
 uint8_t Serial_read() {
   uint8_t num=dump2log&7;
   if (num<1 || num>meters_used) num=1;
+  if (!meter_ss[num-1]) return 0;
   return meter_ss[num-1]->read();
 }
 
 uint8_t Serial_peek() {
   uint8_t num=dump2log&7;
   if (num<1 || num>meters_used) num=1;
+  if (!meter_ss[num-1]) return 0;
   return meter_ss[num-1]->peek();
 }
 
@@ -1166,7 +1173,7 @@ uint8_t ebus_CalculateCRC( uint8_t *Data, uint16_t DataLen ) {
 
 void sml_empty_receiver(uint32_t meters) {
   while (meter_ss[meters]->available()) {
-    meter_ss[meters]->read();
+    if (meter_ss[meters]) meter_ss[meters]->read();
   }
 }
 
@@ -1179,7 +1186,8 @@ void sml_shift_in(uint32_t meters,uint32_t shard) {
       smltbuf[meters][count]=smltbuf[meters][count+1];
     }
   }
-  uint8_t iob=(uint8_t)meter_ss[meters]->read();
+  uint8_t iob=0;
+  if (meter_ss[meters]) iob=(uint8_t)meter_ss[meters]->read();
 
   if (meter_desc_p[meters].type=='o') {
     smltbuf[meters][SML_BSIZ-1]=iob&0x7f;
@@ -1240,6 +1248,7 @@ uint32_t meters;
     for (meters=0; meters<meters_used; meters++) {
       if (meter_desc_p[meters].type!='c') {
         // poll for serial input
+        if (!meter_ss[meters]) continue;
         while (meter_ss[meters]->available()) {
           sml_shift_in(meters,0);
         }
@@ -1834,6 +1843,64 @@ uint8_t *script_meter;
 #define METER_DEF_SIZE 3000
 #endif
 
+//#define SML_REPLACE_VARS
+
+#ifdef SML_REPLACE_VARS
+
+#define SML_SRCBSIZE 256
+
+char *SML_getline(char *tp,char *lp) {
+uint32_t index=0;
+char *clp=lp;
+  while (1) {
+    if ((*lp==0) || (*lp==SCRIPT_EOL && *(lp+1)=='#')) {
+      *tp=0;
+      return 0;
+    }
+    if (*lp==SCRIPT_EOL) {
+      *tp=0;
+      lp++;
+      break;
+    }
+    *tp++=*lp++;
+    index++;
+    if (index>=SML_SRCBSIZE-1) {
+      *tp=0;
+      break;
+    }
+  }
+  return lp;
+}
+
+uint32_t SML_getscriptsize(char *lp) {
+uint32_t mlen=0;
+char strbuf[SML_SRCBSIZE];
+char dstbuf[SML_SRCBSIZE*2];
+  while (1) {
+    lp=SML_getline(strbuf,lp);
+    Replace_Cmd_Vars(strbuf,dstbuf,sizeof(dstbuf));
+    uint32_t slen=strlen(dstbuf);
+    //AddLog_P2(LOG_LEVEL_INFO, PSTR("%d - %s"),slen,dstbuf);
+    mlen+=slen+1;
+    if (!lp) break;
+  }
+  //AddLog_P2(LOG_LEVEL_INFO, PSTR("len=%d"),mlen);
+  return mlen+32;
+}
+#else
+uint32_t SML_getscriptsize(char *lp) {
+  uint32_t mlen=0;
+  for (uint32_t cnt=0;cnt<METER_DEF_SIZE-1;cnt++) {
+    if (lp[cnt]=='\n' && lp[cnt+1]=='#') {
+      mlen=cnt+3;
+      break;
+    }
+  }
+  //AddLog_P2(LOG_LEVEL_INFO, PSTR("len=%d"),mlen);
+  return mlen;
+}
+#endif
+
 bool Gpio_used(uint8_t gpiopin) {
 /*
   for (uint16_t i=0;i<GPIO_SENSOR_END;i++) {
@@ -1899,13 +1966,7 @@ void SML_Init(void) {
           lp+=2;
           meters_used=strtol(lp,0,10);
           section=1;
-          uint32_t mlen=0;
-          for (uint32_t cnt=0;cnt<METER_DEF_SIZE-1;cnt++) {
-            if (lp[cnt]=='\n' && lp[cnt+1]=='#') {
-              mlen=cnt+3;
-              break;
-            }
-          }
+          uint32_t mlen=SML_getscriptsize(lp);
           if (mlen==0) return; // missing end #
           script_meter=(uint8_t*)calloc(mlen,1);
           if (!script_meter) {
@@ -2038,6 +2099,7 @@ init10:
       RtcSettings.pulse_counter[i]=Settings.pulse_counter[i];
       sml_counters[i].sml_cnt_last_ts=millis();
   }
+  uint32_t uart_index=2;
   for (uint8_t meters=0; meters<meters_used; meters++) {
     if (meter_desc_p[meters].type=='c') {
         if (meter_desc_p[meters].flag&2) {
@@ -2073,8 +2135,23 @@ init10:
           meter_ss[meters] = new TasmotaSerial(meter_desc_p[meters].srcpin,meter_desc_p[meters].trxpin,1,1);
         }
 #else
+#ifdef ESP32
+        meter_ss[meters] = new HardwareSerial(uart_index);
+        uart_index--;
+        if (uart_index<0) uart_index=0;
+#else
         meter_ss[meters] = new TasmotaSerial(meter_desc_p[meters].srcpin,meter_desc_p[meters].trxpin,1);
 #endif
+#endif
+
+#ifdef ESP32
+
+        if (meter_desc_p[meters].type=='M') {
+          meter_ss[meters]->begin(meter_desc_p[meters].params, SERIAL_8E1);
+        } else {
+          meter_ss[meters]->begin(meter_desc_p[meters].params);
+        }
+#else
         if (meter_ss[meters]->begin(meter_desc_p[meters].params)) {
           meter_ss[meters]->flush();
         }
@@ -2085,7 +2162,7 @@ init10:
           ClaimSerial();
           //Serial.setRxBufferSize(512);
         }
-
+#endif
     }
   }
 
@@ -2309,7 +2386,7 @@ void SML_Send_Seq(uint32_t meter,char *seq) {
     *ucp++=SML_PzemCrc(sbuff,6);
     slen+=6;
   }
-  meter_ss[meter]->write(sbuff,slen);
+  if (meter_ss[meter]) meter_ss[meter]->write(sbuff,slen);
 }
 #endif // USE_SCRIPT
 
