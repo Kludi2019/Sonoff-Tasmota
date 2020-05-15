@@ -1173,7 +1173,7 @@ uint8_t ebus_CalculateCRC( uint8_t *Data, uint16_t DataLen ) {
 
 void sml_empty_receiver(uint32_t meters) {
   while (meter_ss[meters]->available()) {
-    if (meter_ss[meters]) meter_ss[meters]->read();
+    meter_ss[meters]->read();
   }
 }
 
@@ -1186,8 +1186,7 @@ void sml_shift_in(uint32_t meters,uint32_t shard) {
       smltbuf[meters][count]=smltbuf[meters][count+1];
     }
   }
-  uint8_t iob=0;
-  if (meter_ss[meters]) iob=(uint8_t)meter_ss[meters]->read();
+  uint8_t iob=(uint8_t)meter_ss[meters]->read();
 
   if (meter_desc_p[meters].type=='o') {
     smltbuf[meters][SML_BSIZ-1]=iob&0x7f;
@@ -1198,7 +1197,8 @@ void sml_shift_in(uint32_t meters,uint32_t shard) {
   } else if (meter_desc_p[meters].type=='m' || meter_desc_p[meters].type=='M') {
     smltbuf[meters][meter_spos[meters]] = iob;
     meter_spos[meters]++;
-    if (meter_spos[meters]>=9) {
+    uint32_t mlen=smltbuf[meters][2]+5;
+    if (meter_spos[meters]>=mlen) {
       SML_Decode(meters);
       sml_empty_receiver(meters);
       meter_spos[meters]=0;
@@ -2406,7 +2406,7 @@ void SML_Send_Seq(uint32_t meter,char *seq) {
     *ucp++=SML_PzemCrc(sbuff,6);
     slen+=6;
   }
-  if (meter_ss[meter]) meter_ss[meter]->write(sbuff,slen);
+  meter_ss[meter]->write(sbuff,slen);
 }
 #endif // USE_SCRIPT
 
