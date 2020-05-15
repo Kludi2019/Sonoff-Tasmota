@@ -1543,9 +1543,10 @@ void SML_Decode(uint8_t index) {
               if (mb_index!=meter_desc_p[mindex].index) {
                 goto nextsect;
               }
-              uint16_t crc = MBUS_calculateCRC(&smltbuf[mindex][0],7);
-              if (lowByte(crc)!=smltbuf[mindex][7]) goto nextsect;
-              if (highByte(crc)!=smltbuf[mindex][8]) goto nextsect;
+              uint16_t pos = smltbuf[mindex][2]+3;
+              uint16_t crc = MBUS_calculateCRC(&smltbuf[mindex][0],pos);
+              if (lowByte(crc)!=smltbuf[mindex][pos]) goto nextsect;
+              if (highByte(crc)!=smltbuf[mindex][pos+1]) goto nextsect;
               dval=mbus_dval;
               //AddLog_P2(LOG_LEVEL_INFO, PSTR(">> %s"),mp);
               mp++;
