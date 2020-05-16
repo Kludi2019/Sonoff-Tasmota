@@ -2151,6 +2151,7 @@ init10:
 #else
 #ifdef ESP32
         meter_ss[meters] = new HardwareSerial(uart_index);
+        if (uart_index==0) { ClaimSerial(); }
         uart_index--;
         if (uart_index<0) uart_index=0;
 #else

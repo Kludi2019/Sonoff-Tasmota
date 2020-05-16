@@ -5437,6 +5437,5 @@ bool Xdrv10(uint8_t function)
 }
 
 
-
 #endif  // Do not USE_RULES
 #endif  // USE_SCRIPT

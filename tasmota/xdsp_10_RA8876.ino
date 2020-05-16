@@ -72,6 +72,13 @@ void RA8876_InitDriver()
     bg_color = RA8876_BLACK;
 
     // init renderer, must use hardware spi
+#ifdef ESP32
+    if (PinUsed(GPIO_SPI_CS) && PinUsed(GPIO_SPI_MOSI) && PinUsed(GPIO_SPI_MISO) && PinUsed(GPIO_SPI_CLK)) {
+      ra8876  = new RA8876(Pin(GPIO_SPI_CS),Pin(GPIO_SPI_MOSI),Pin(GPIO_SPI_MISO),Pin(GPIO_SPI_CLK),Pin(GPIO_BACKLIGHT));
+    } else {
+      return;
+    }
+#else
     if (PinUsed(GPIO_SSPI_CS) && (Pin(GPIO_SSPI_MOSI)==13) && (Pin(GPIO_SSPI_MISO)==12) && (Pin(GPIO_SSPI_SCLK)==14)) {
       ra8876  = new RA8876(Pin(GPIO_SSPI_CS),Pin(GPIO_SSPI_MOSI),Pin(GPIO_SSPI_MISO),Pin(GPIO_SSPI_SCLK),Pin(GPIO_BACKLIGHT));
     } else {
@@ -81,6 +88,7 @@ void RA8876_InitDriver()
         return;
       }
     }
+#endif
 
     ra8876->begin();
     renderer = ra8876;
