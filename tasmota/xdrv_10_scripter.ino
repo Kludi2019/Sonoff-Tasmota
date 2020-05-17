@@ -3592,6 +3592,11 @@ const char HTTP_FORM_SDC_HREF[] PROGMEM =
 
 uint8_t reject(char *name) {
 
+  char *lcp = strrchr(name,'/');
+  if (lcp) {
+    name=lcp+1;
+  }
+
   while (*name=='/') name++;
   if (*name=='_') return 1;
   if (*name=='.') return 1;
