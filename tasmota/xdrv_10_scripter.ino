@@ -3035,7 +3035,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                 uint8_t index=glob_script_mem.type[ind.index].index;
                 if ((vtype&STYPE)==0) {
                     // numeric result
-                  if (glob_script_mem.type[index].bits.is_filter) {
+                  if (glob_script_mem.type[ind.index].bits.is_filter) {
                     uint8_t len=0;
                     float *fa=Get_MFAddr(index,&len);
                     //Serial.printf(">> 2 %d\n",(uint32_t)*fa);
@@ -5108,8 +5108,8 @@ void ScriptWebShow(char mc) {
                   uint8_t index=glob_script_mem.type[ind.index].index;
                   if ((vtype&STYPE)==0) {
                     // numeric result
-                    //Serial.printf("numeric\n");
-                    if (glob_script_mem.type[index].bits.is_filter) {
+                    //Serial.printf("numeric %d - %d \n",ind.index,index);
+                    if (glob_script_mem.type[ind.index].bits.is_filter) {
                       //Serial.printf("numeric array\n");
                       uint8_t len=0;
                       float *fa=Get_MFAddr(index,&len);
