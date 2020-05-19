@@ -3971,6 +3971,9 @@ void ScriptSaveSettings(void) {
 #define UNISHOXRSIZE 2560
 #endif
 #ifdef USE_RULES_COMPRESSION
+#ifndef USE_24C256
+#ifndef USE_SCRIPT_FATFS
+#ifndef ESP32_SCRIPT_SIZE
   uint32_t len_compressed = unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram), Settings.rules[0], UNISHOXRSIZE);
   if (len_compressed > 0) {
     AddLog_P2(LOG_LEVEL_INFO,PSTR("compressed to %d"),len_compressed * 100 / strlen(glob_script_mem.script_ram));
@@ -3978,6 +3981,9 @@ void ScriptSaveSettings(void) {
     AddLog_P2(LOG_LEVEL_INFO, PSTR("script compress error: %d"), len_compressed);
   }
 #endif
+#endif
+#endif
+#endif // USE_RULES_COMPRESSION
 
   if (bitRead(Settings.rule_enabled, 0)) {
     int16_t res=Init_Scripter();
@@ -5439,7 +5445,7 @@ bool Xdrv10(uint8_t function)
 #endif
 #endif
 #endif
-#endif
+#endif // USE_RULES_COMPRESSION
 
 #ifdef USE_BUTTON_EVENT
       for (uint32_t cnt=0;cnt<MAX_KEYS;cnt++) {
