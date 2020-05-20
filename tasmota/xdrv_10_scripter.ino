@@ -44,6 +44,8 @@ keywords if then else endif, or, and are better readable for beginners (others m
 #define SCRIPT_DEBUG 0
 
 
+#undef USE_RULES_COMPRESSION
+
 #ifndef MAXVARS
 #define MAXVARS 50
 #endif
@@ -5447,6 +5449,7 @@ uint32_t scripter_create_task(uint32_t num, uint32_t time, uint32_t core) {
 bool Xdrv10(uint8_t function)
 {
   bool result = false;
+  char *sprt;
 
   switch (function) {
     case FUNC_PRE_INIT:
@@ -5462,10 +5465,18 @@ bool Xdrv10(uint8_t function)
 #ifndef USE_24C256
 #ifndef USE_SCRIPT_FATFS
 #ifndef ESP32_SCRIPT_SIZE
-      glob_script_mem.script_ram=(char*)calloc(UNISHOXRSIZE+8,1);
-      if (!glob_script_mem.script_ram) { break; }
-      compressor.unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, UNISHOXRSIZE);
+      int32_t len_decompressed;
+      sprt=(char*)calloc(UNISHOXRSIZE+8,1);
+      if (!sprt) { break; }
+      glob_script_mem.script_ram=sprt;
       glob_script_mem.script_size=UNISHOXRSIZE;
+
+      Serial.printf("decomp len %d %d\n", strlen(Settings.rules[0]),UNISHOXRSIZE);
+
+      len_decompressed = compressor.unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
+      AddLog_P2(LOG_LEVEL_INFO, PSTR("decomp script to %d"),len_decompressed);
+      Serial.printf("decomp %d\n", len_decompressed);
+
 #endif
 #endif
 #endif
