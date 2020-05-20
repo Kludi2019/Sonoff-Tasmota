@@ -72,6 +72,11 @@ uint32_t DecodeLightId(uint32_t hue_id);
 
 #ifdef USE_RULES_COMPRESSION
 #include <old_unishox.h>
+#include <unishox.h>
+#define SCRIPT_COMPRESS old_unishox_compress
+#define SCRIPT_DECOMPRESS old_unishox_decompress
+//#define SCRIPT_COMPRESS compressor.unishox_compress
+//#define SCRIPT_DECOMPRESS compressor.unishox_decompress
 //Unishox compressor;   // singleton
 #ifndef UNISHOXRSIZE
 #define UNISHOXRSIZE 2560
@@ -3982,7 +3987,7 @@ void ScriptSaveSettings(void) {
 #ifndef USE_24C256
 #ifndef USE_SCRIPT_FATFS
 #ifndef ESP32_SCRIPT_SIZE
-  uint32_t len_compressed = old_unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
+  uint32_t len_compressed = SCRIPT_COMPRESS(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
   //uint32_t len_compressed = compressor.unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
   if (len_compressed > 0) {
     AddLog_P2(LOG_LEVEL_INFO,PSTR("script compressed to %d %%"),len_compressed * 100 / strlen(glob_script_mem.script_ram));
@@ -5471,7 +5476,7 @@ bool Xdrv10(uint8_t function)
       if (!sprt) { break; }
       glob_script_mem.script_ram=sprt;
       glob_script_mem.script_size=UNISHOXRSIZE;
-      len_decompressed = old_unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
+      len_decompressed = SCRIPT_DECOMPRESS(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
       //len_decompressed = compressor.unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
       AddLog_P2(LOG_LEVEL_INFO, PSTR("decompressed script len %d"),len_decompressed);
 #endif
