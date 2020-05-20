@@ -44,7 +44,7 @@ keywords if then else endif, or, and are better readable for beginners (others m
 #define SCRIPT_DEBUG 0
 
 
-#undef USE_RULES_COMPRESSION
+//#undef USE_RULES_COMPRESSION
 
 #ifndef MAXVARS
 #define MAXVARS 50
@@ -71,8 +71,8 @@ uint32_t EncodeLightId(uint8_t relay_id);
 uint32_t DecodeLightId(uint32_t hue_id);
 
 #ifdef USE_RULES_COMPRESSION
-#include <unishox.h>
-Unishox compressor;   // singleton
+#include <old_unishox.h>
+//Unishox compressor;   // singleton
 #ifndef UNISHOXRSIZE
 #define UNISHOXRSIZE 2560
 #endif
@@ -3982,7 +3982,8 @@ void ScriptSaveSettings(void) {
 #ifndef USE_24C256
 #ifndef USE_SCRIPT_FATFS
 #ifndef ESP32_SCRIPT_SIZE
-  uint32_t len_compressed = compressor.unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
+  uint32_t len_compressed = old_unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
+  //uint32_t len_compressed = compressor.unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
   if (len_compressed > 0) {
     AddLog_P2(LOG_LEVEL_INFO,PSTR("script compressed to %d %%"),len_compressed * 100 / strlen(glob_script_mem.script_ram));
   } else {
@@ -5470,7 +5471,8 @@ bool Xdrv10(uint8_t function)
       if (!sprt) { break; }
       glob_script_mem.script_ram=sprt;
       glob_script_mem.script_size=UNISHOXRSIZE;
-      len_decompressed = compressor.unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
+      len_decompressed = old_unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
+      //len_decompressed = compressor.unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
       AddLog_P2(LOG_LEVEL_INFO, PSTR("decompressed script len %d"),len_decompressed);
 #endif
 #endif
