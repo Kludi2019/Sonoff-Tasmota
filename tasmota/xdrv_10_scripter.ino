@@ -5470,13 +5470,8 @@ bool Xdrv10(uint8_t function)
       if (!sprt) { break; }
       glob_script_mem.script_ram=sprt;
       glob_script_mem.script_size=UNISHOXRSIZE;
-
-      Serial.printf("decomp len %d %d\n", strlen(Settings.rules[0]),UNISHOXRSIZE);
-
       len_decompressed = compressor.unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
-      AddLog_P2(LOG_LEVEL_INFO, PSTR("decomp script to %d"),len_decompressed);
-      Serial.printf("decomp %d\n", len_decompressed);
-
+      AddLog_P2(LOG_LEVEL_INFO, PSTR("decompressed script len %d"),len_decompressed);
 #endif
 #endif
 #endif
