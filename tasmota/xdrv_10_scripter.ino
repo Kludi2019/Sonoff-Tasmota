@@ -52,7 +52,9 @@ keywords if then else endif, or, and are better readable for beginners (others m
 #endif
 #define MAXNVARS MAXVARS-MAXSVARS
 
+#ifndef MAXFILT
 #define MAXFILT 5
+#endif
 #define SCRIPT_SVARSIZE 20
 #define SCRIPT_MAXSSIZE 48
 #define SCRIPT_EOL '\n'
@@ -3974,9 +3976,9 @@ void ScriptSaveSettings(void) {
 #ifndef USE_24C256
 #ifndef USE_SCRIPT_FATFS
 #ifndef ESP32_SCRIPT_SIZE
-  uint32_t len_compressed = unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram), Settings.rules[0], UNISHOXRSIZE);
+  uint32_t len_compressed = unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
   if (len_compressed > 0) {
-    AddLog_P2(LOG_LEVEL_INFO,PSTR("compressed to %d"),len_compressed * 100 / strlen(glob_script_mem.script_ram));
+    AddLog_P2(LOG_LEVEL_INFO,PSTR("compressed to %d %%"),len_compressed * 100 / strlen(glob_script_mem.script_ram));
   } else {
     AddLog_P2(LOG_LEVEL_INFO, PSTR("script compress error: %d"), len_compressed);
   }
@@ -4912,6 +4914,10 @@ const char SCRIPT_MSG_GTABLEb[] PROGMEM =
 const char SCRIPT_MSG_GOPT1[] PROGMEM =
 "title:'%s',isStacked:false";
 
+const char SCRIPT_MSG_GOPT3[] PROGMEM =
+"title:'%s',vAxes:{0:{maxValue:%d},1:{maxValue:%d}},series:{0:{targetAxisIndex:0},1:{targetAxisIndex:1}}";
+
+
 const char SCRIPT_MSG_GOPT2[] PROGMEM =
 "showRowNumber:true,sort:'disable',allowHtml:true,width:'100%%',height:'100%%',cssClassNames:cssc";
 
@@ -5223,7 +5229,7 @@ void ScriptWebShow(char mc) {
               lp=GetStringResult(lp,OPER_EQU,header,0);
               SCRIPT_SKIP_SPACES
 
-              char options[128];
+              char options[256];
               snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT1,header);
 
               const char *type;
@@ -5231,6 +5237,18 @@ void ScriptWebShow(char mc) {
                 switch (*lp) {
                   case 'l':
                     type=PSTR("LineChart");
+                    if (*(lp+1)=='2') {
+                      // 2 y axes variant
+                      lp+=2;
+                      SCRIPT_SKIP_SPACES
+                      float max1;
+                      lp=GetNumericResult(lp,OPER_EQU,&max1,0);
+                      SCRIPT_SKIP_SPACES
+                      float max2;
+                      lp=GetNumericResult(lp,OPER_EQU,&max2,0);
+                      SCRIPT_SKIP_SPACES
+                      snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT3,header,(uint32_t)max1,(uint32_t)max2);
+                    }
                     break;
                   case 'b':
                     type=PSTR("BarChart");
@@ -5255,6 +5273,7 @@ void ScriptWebShow(char mc) {
               } else {
                 type=PSTR("ColumnChart");
               }
+              lp++;
 
               WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
               chartindex++;

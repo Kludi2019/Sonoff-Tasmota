@@ -133,7 +133,8 @@ void Sgp30Show(bool json)
 #ifdef USE_WEBSERVER
     } else {
       WSContentSend_PD(HTTP_SNS_SGP30, sgp.eCO2, sgp.TVOC);
-      if (global_update) {
+      if (global_update && global_humidity>0 && global_temperature!=9999) {
+        dtostrfd(sgp30_abshum,4,abs_hum);
         WSContentSend_PD(HTTP_SNS_AHUM, abs_hum);
       }
 #endif
