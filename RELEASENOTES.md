@@ -52,6 +52,7 @@ The following binary downloads have been compiled with ESP8266/Arduino library c
 
 ## Changelog
 
-### Version 8.3.0.1
+### Version 8.3.1.1
 
-- Fix default state of ``SetOption73 0`` for button decoupling and send multi-press and hold MQTT messages
+- Add command ``Rule0`` to change global rule parameters
+- Add more functionality to ``Switchmode`` 11 and 12 (#8450)

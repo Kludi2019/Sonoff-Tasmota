@@ -213,6 +213,7 @@ char rules_vars[MAX_RULE_VARS][33] = {{ 0 }};
 #ifdef USE_RULES_COMPRESSION
 // Statically allocate one String per rule
 String k_rules[MAX_RULE_SETS] = { String(), String(), String() };   // Strings are created empty
+Unishox compressor;   // singleton
 #endif // USE_RULES_COMPRESSION
 
 // Returns whether the rule is uncompressed, which means the first byte is not NULL
@@ -256,6 +257,7 @@ size_t GetRuleLenStorage(uint32_t idx) {
 #endif
 }
 
+#ifdef USE_RULES_COMPRESSION
 // internal function, do the actual decompression
 void GetRule_decompress(String &rule, const char *rule_head) {
   size_t buf_len = 1 + *rule_head * 8;       // the first byte contains size of buffer for uncompressed rule / 8, buf_len may overshoot by 7
@@ -268,12 +270,13 @@ void GetRule_decompress(String &rule, const char *rule_head) {
   rule.reserve(buf_len);
   char* buf = rule.begin();
 
-  int32_t len_decompressed = unishox_decompress(rule_head, strlen(rule_head), buf, buf_len);
+  int32_t len_decompressed = compressor.unishox_decompress(rule_head, strlen(rule_head), buf, buf_len);
   buf[len_decompressed] = 0;    // add NULL terminator
 
   // AddLog_P2(LOG_LEVEL_INFO, PSTR("RUL: Rawdecompressed: %d"), len_decompressed);
   rule = buf;       // assign the raw string to the String object (in reality re-writing the same data in the same place)
 }
+#endif // USE_RULES_COMPRESSION
 
 //
 // Read rule in memory, uncompress if needed
@@ -308,7 +311,7 @@ String GetRule(uint32_t idx) {
 // If out == nullptr, we are in dry-run mode, so don't keep rule in cache
 int32_t SetRule_compress(uint32_t idx, const char *in, size_t in_len, char *out, size_t out_len) {
   int32_t len_compressed;
-  len_compressed = unishox_compress(in, in_len, out, out_len);
+  len_compressed = compressor.unishox_compress(in, in_len, out, out_len);
 
   if (len_compressed >= 0) {                // negative means compression failed because of buffer too small, we leave the rule untouched
     // check if we need to store in cache
@@ -357,7 +360,7 @@ int32_t SetRule(uint32_t idx, const char *content, bool append = false) {
       int32_t len_compressed, len_uncompressed;
 
       len_uncompressed = strlen(Settings.rules[idx]);
-      len_compressed = unishox_compress(Settings.rules[idx], len_uncompressed, nullptr /* dry-run */, MAX_RULE_SIZE + 8);
+      len_compressed = compressor.unishox_compress(Settings.rules[idx], len_uncompressed, nullptr /* dry-run */, MAX_RULE_SIZE + 8);
       AddLog_P2(LOG_LEVEL_INFO, PSTR("RUL: Stored uncompressed, would compress from %d to %d (-%d%%)"), len_uncompressed, len_compressed, 100 - changeUIntScale(len_compressed, 0, len_uncompressed, 0, 100));
     }
 
@@ -1951,6 +1954,26 @@ void RulesPreprocessCommand(char *pCommands)
 
 void CmndRule(void)
 {
+  if (0 == XdrvMailbox.index) {
+    char data = '\0';
+    if (XdrvMailbox.data_len > 0) {  // Allow show all if 0
+      if (!((XdrvMailbox.payload >= 0) && (XdrvMailbox.payload <= 10))) {
+        if ('"' == XdrvMailbox.data[0]) {
+          data = '"';                // Save data as XdrvMailbox.data is destroyed
+        } else {
+          XdrvMailbox.data_len = 0;  // Discard any additional text
+        }
+      }
+    }
+    for (uint32_t i = 1; i <= MAX_RULE_SETS; i++) {
+      XdrvMailbox.index = i;
+      XdrvMailbox.data[0] = data;    // Only 0 or "
+      CmndRule();
+      MqttPublishPrefixTopic_P(RESULT_OR_STAT, XdrvMailbox.command);
+    }
+    mqtt_data[0] = '\0';             // Disable further processing
+    return;
+  }
   uint8_t index = XdrvMailbox.index;
   if ((index > 0) && (index <= MAX_RULE_SETS)) {
     // if ((XdrvMailbox.data_len > 0) && (XdrvMailbox.data_len < sizeof(Settings.rules[index -1]))) {    // TODO postpone size calculation

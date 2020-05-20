@@ -232,7 +232,7 @@ enum TopicOptions { CMND, STAT, TELE, nu1, RESULT_OR_CMND, RESULT_OR_STAT, RESUL
 enum ExecuteCommandPowerOptions { POWER_OFF, POWER_ON, POWER_TOGGLE, POWER_BLINK, POWER_BLINK_STOP,
                                   POWER_OFF_NO_STATE = 8, POWER_ON_NO_STATE, POWER_TOGGLE_NO_STATE,
                                   POWER_SHOW_STATE = 16 };
-enum SendKeyPowerOptions { POWER_HOLD = 3, POWER_INCREMENT = 4, POWER_INV = 5, POWER_CLEAR = 6, CLEAR_RETAIN = 9 };
+enum SendKeyPowerOptions { POWER_HOLD = 3, POWER_INCREMENT = 4, POWER_INV = 5, POWER_CLEAR = 6, POWER_RELEASE = 7, CLEAR_RETAIN = 9 };
 enum SendKeyOptions { KEY_BUTTON, KEY_SWITCH };
 enum SendKeyMultiClick { SINGLE = 10, DOUBLE = 11, TRIPLE = 12, QUAD = 13, PENTA = 14};
 
@@ -292,6 +292,7 @@ enum SettingsTextIndex { SET_OTAURL,
                          SET_MQTT_GRP_TOPIC2, SET_MQTT_GRP_TOPIC3, SET_MQTT_GRP_TOPIC4,
                          SET_TEMPLATE_NAME,
                          SET_DEV_GROUP_NAME1, SET_DEV_GROUP_NAME2, SET_DEV_GROUP_NAME3, SET_DEV_GROUP_NAME4,
+                         SET_DEVICENAME,
                          SET_MAX };
 
 enum DevGroupMessageType { DGR_MSGTYP_FULL_STATUS, DGR_MSGTYP_PARTIAL_UPDATE, DGR_MSGTYP_UPDATE, DGR_MSGTYP_UPDATE_MORE_TO_COME, DGR_MSGTYP_UPDATE_DIRECT, DGR_MSGTYPE_UPDATE_COMMAND };

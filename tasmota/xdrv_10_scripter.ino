@@ -68,7 +68,13 @@ keywords if then else endif, or, and are better readable for beginners (others m
 uint32_t EncodeLightId(uint8_t relay_id);
 uint32_t DecodeLightId(uint32_t hue_id);
 
+#ifdef USE_RULES_COMPRESSION
 #include <unishox.h>
+Unishox compressor;   // singleton
+#ifndef UNISHOXRSIZE
+#define UNISHOXRSIZE 2560
+#endif
+#endif
 
 #if defined(ESP32) && defined(ESP32_SCRIPT_SIZE) && !defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
 #include "FS.h"
@@ -3969,14 +3975,12 @@ void ScriptSaveSettings(void) {
   }
 
 
-#ifndef UNISHOXRSIZE
-#define UNISHOXRSIZE 2560
-#endif
+
 #ifdef USE_RULES_COMPRESSION
 #ifndef USE_24C256
 #ifndef USE_SCRIPT_FATFS
 #ifndef ESP32_SCRIPT_SIZE
-  uint32_t len_compressed = unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
+  uint32_t len_compressed = compressor.unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
   if (len_compressed > 0) {
     AddLog_P2(LOG_LEVEL_INFO,PSTR("script compressed to %d %%"),len_compressed * 100 / strlen(glob_script_mem.script_ram));
   } else {
@@ -5460,7 +5464,7 @@ bool Xdrv10(uint8_t function)
 #ifndef ESP32_SCRIPT_SIZE
       glob_script_mem.script_ram=(char*)calloc(UNISHOXRSIZE+8,1);
       if (!glob_script_mem.script_ram) { break; }
-      unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, UNISHOXRSIZE);
+      compressor.unishox_decompress(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, UNISHOXRSIZE);
       glob_script_mem.script_size=UNISHOXRSIZE;
 #endif
 #endif

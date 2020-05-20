@@ -1,7 +1,26 @@
 ## Unreleased (development)
 
+### 8.3.1.1 20200518
+
+- Add command ``Rule0`` to change global rule parameters
+- Add more functionality to ``Switchmode`` 11 and 12 (#8450)
+
+## Released
+
+### 8.3.1 20200518
+
+- Release Fred
+
+### 8.3.0.2 20200517
+
+- Change Hass discovery from using template name to new Device name (#8462)
+- Add command ``DeviceName`` defaults to FriendlyName1 and replaces FriendlyName1 in GUI
+
 ### 8.3.0.1 20200514
 
+- Change KNX pow function to approximative pow saving 5k of code space
+- Change Mutichannel Gas sensor pow function to approximative pow saving 5k of code space
+- Change Quick Power Cycle detection from 4 to 7 power interrupts (#4066)
 - Fix default state of ``SetOption73 0`` for button decoupling and send multi-press and hold MQTT messages
 
 ## Released
