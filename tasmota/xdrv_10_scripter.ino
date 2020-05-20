@@ -3978,7 +3978,7 @@ void ScriptSaveSettings(void) {
 #ifndef ESP32_SCRIPT_SIZE
   uint32_t len_compressed = unishox_compress(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE);
   if (len_compressed > 0) {
-    AddLog_P2(LOG_LEVEL_INFO,PSTR("compressed to %d %%"),len_compressed * 100 / strlen(glob_script_mem.script_ram));
+    AddLog_P2(LOG_LEVEL_INFO,PSTR("script compressed to %d %%"),len_compressed * 100 / strlen(glob_script_mem.script_ram));
   } else {
     AddLog_P2(LOG_LEVEL_INFO, PSTR("script compress error: %d"), len_compressed);
   }
@@ -5231,6 +5231,7 @@ void ScriptWebShow(char mc) {
 
               char options[256];
               snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT1,header);
+              //uint32_t slen=sizeof(SCRIPT_MSG_GOPT1)+strlen(header);
 
               const char *type;
               if (*lp!=')') {
