@@ -1228,6 +1228,42 @@ chknext:
           fvar=UtcTime()-(uint32_t)EPOCH_OFFSET;
           goto exit;
         }
+#ifdef USE_ENERGY_SENSOR
+        if (!strncmp(vname,"enrg[",5)) {
+          lp+=5;
+          lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
+          while (*lp==' ') lp++;
+          switch ((uint32_t)fvar) {
+            case 0:
+              fvar=Energy.total;
+              break;
+            case 1:
+              fvar=Energy.voltage[0];
+              break;
+            case 2:
+              fvar=Energy.voltage[1];
+              break;
+            case 3:
+              fvar=Energy.voltage[2];
+              break;
+            case 4:
+              fvar=Energy.current[0];
+              break;
+            case 5:
+              fvar=Energy.current[1];
+              break;
+            case 6:
+              fvar=Energy.current[2];
+              break;              
+            default:
+              fvar=99999;
+              break;
+          }
+          len=0;
+          lp++;
+          goto exit;
+        }
+#endif //USE_ENERGY_SENSOR
         break;
       case 'f':
 #ifdef USE_SCRIPT_FATFS
@@ -4924,7 +4960,7 @@ const char SCRIPT_MSG_GOPT1[] PROGMEM =
 "title:'%s',isStacked:false";
 
 const char SCRIPT_MSG_GOPT3[] PROGMEM =
-"title:'%s',vAxes:{0:{maxValue:%d},1:{maxValue:%d}},series:{0:{targetAxisIndex:0},1:{targetAxisIndex:1}}";
+"title:'%s',vAxes:{0:{maxValue:%d},1:{maxValue:%d}},series:{0:{targetAxisIndex:0},1:{targetAxisIndex:1}}%s";
 
 
 const char SCRIPT_MSG_GOPT2[] PROGMEM =
@@ -5243,11 +5279,19 @@ void ScriptWebShow(char mc) {
               //uint32_t slen=sizeof(SCRIPT_MSG_GOPT1)+strlen(header);
 
               const char *type;
+              const char *func;
               if (*lp!=')') {
                 switch (*lp) {
                   case 'l':
+                    lp++;
                     type=PSTR("LineChart");
-                    if (*(lp+1)=='2') {
+                    if (*lp=='f') {
+                      lp++;
+                      func=PSTR(",curveType:'function'");
+                    } else {
+                      func="";
+                    }
+                    if (*lp=='2') {
                       // 2 y axes variant
                       lp+=2;
                       SCRIPT_SKIP_SPACES
@@ -5257,33 +5301,38 @@ void ScriptWebShow(char mc) {
                       float max2;
                       lp=GetNumericResult(lp,OPER_EQU,&max2,0);
                       SCRIPT_SKIP_SPACES
-                      snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT3,header,(uint32_t)max1,(uint32_t)max2);
+                      snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT3,header,(uint32_t)max1,(uint32_t)max2,func);
                     }
                     break;
                   case 'b':
+                    lp++;
                     type=PSTR("BarChart");
                     break;
                   case 'p':
+                    lp++;
                     type=PSTR("PieChart");
                     break;
                   case 'g':
+                    lp++;
                     type=PSTR("Gauge");
                     break;
                   case 't':
+                    lp++;
                     type=PSTR("Table");
                     snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT2);
                     break;
                   case 'h':
-                   type=PSTR("Histogram");
-                   break;
+                    lp++;
+                    type=PSTR("Histogram");
+                    break;
                   default:
                     type=PSTR("ColumnChart");
                     break;
                 }
               } else {
+                lp++;
                 type=PSTR("ColumnChart");
               }
-              lp++;
 
               WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
               chartindex++;
