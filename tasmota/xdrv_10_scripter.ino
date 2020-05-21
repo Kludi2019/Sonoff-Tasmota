@@ -4951,6 +4951,8 @@ const char SCRIPT_MSG_TEXTINP[] PROGMEM =
 const char SCRIPT_MSG_NUMINP[] PROGMEM =
   "<div><center><label><b>%s</b><input  min='%s' max='%s' step='%s' value='%s' type='number' style='width:200px' onfocusin='pr(0)' onfocusout='pr(1)' onchange='siva(value,\"%s\")'></label></div>";
 
+
+#ifdef USE_GOOGLE_CHARTS
 const char SCRIPT_MSG_GTABLE[] PROGMEM =
   "<script type='text/javascript' src='https://www.gstatic.com/charts/loader.js'></script>"
   "<script type='text/javascript'>google.charts.load('current',{packages:['corechart']});</script>"
@@ -4964,6 +4966,9 @@ const char SCRIPT_MSG_GTABLEa[] PROGMEM =
   "var cssc={'headerRow':'hRow','rowNumberCell':'hCol','tableCell':'tCell'};"
   "var data=google.visualization.arrayToDataTable([";
 
+const char SCRIPT_MSG_GTABLEc[] PROGMEM =
+"<script type='text/javascript'>google.charts.load('current',{packages:['timeline']});</script>";
+
 
 const char SCRIPT_MSG_GTABLEb[] PROGMEM =
  "]);"
@@ -4975,14 +4980,77 @@ const char SCRIPT_MSG_GTABLEb[] PROGMEM =
 const char SCRIPT_MSG_GOPT1[] PROGMEM =
 "title:'%s',isStacked:false";
 
-const char SCRIPT_MSG_GOPT3[] PROGMEM =
-"title:'%s',isStacked:false,vAxes:{0:{maxValue:%d},1:{maxValue:%d}},series:{0:{targetAxisIndex:0},1:{targetAxisIndex:1}}%s";
-
-
 const char SCRIPT_MSG_GOPT2[] PROGMEM =
 "showRowNumber:true,sort:'disable',allowHtml:true,width:'100%%',height:'100%%',cssClassNames:cssc";
 
+const char SCRIPT_MSG_GOPT3[] PROGMEM =
+"title:'%s',isStacked:false,vAxes:{0:{maxValue:%d},1:{maxValue:%d}},series:{0:{targetAxisIndex:0},1:{targetAxisIndex:1}}%s";
+
+const char SCRIPT_MSG_GOPT4[] PROGMEM =
+"hAxis:{minValue:new Date(0,1,1,0,0),maxValue:new Date(0,1,2,0,0),format:'HH:mm'}";
+
+const char SCRIPT_MSG_GOPT5[] PROGMEM =
+"new Date(0,1,1,%d,%d)";
+
+
 const char SCRIPT_MSG_GTE1[] PROGMEM = "'%s'";
+
+#define MAX_GARRAY 4
+
+char *gc_get_arrays(char *lp, float **arrays, uint8_t *ranum, uint8_t *rentries) {
+struct T_INDEX ind;
+uint8_t vtype;
+uint8 entries=0;
+
+  uint8_t anum=0;
+  while (anum<MAX_GARRAY) {
+    if (*lp==')' || *lp==0) break;
+    char *lp1=lp;
+    lp=isvar(lp,&vtype,&ind,0,0,0);
+    if (vtype!=VAR_NV) {
+      SCRIPT_SKIP_SPACES
+      uint8_t index=glob_script_mem.type[ind.index].index;
+      if ((vtype&STYPE)==0) {
+        // numeric result
+        //Serial.printf("numeric %d - %d \n",ind.index,index);
+        if (glob_script_mem.type[ind.index].bits.is_filter) {
+          //Serial.printf("numeric array\n");
+          uint8_t len=0;
+          float *fa=Get_MFAddr(index,&len);
+          //Serial.printf(">> 2 %d\n",(uint32_t)*fa);
+          if (fa && len>=entries) {
+            if (!entries) {entries = len;}
+            // add array to list
+            arrays[anum]=fa;
+            anum++;
+          }
+        }
+      } else {
+        lp=lp1;
+        break;
+      }
+    }
+  }
+  *ranum=anum;
+  *rentries=entries;
+  return lp;
+}
+
+char *gc_send_labels(char *lp,uint32_t anum) {
+  WSContentSend_PD("[");
+  for (uint32_t cnt=0; cnt<anum+1; cnt++) {
+    char label[SCRIPT_MAXSSIZE];
+    lp=GetStringResult(lp,OPER_EQU,label,0);
+    SCRIPT_SKIP_SPACES
+    WSContentSend_PD(SCRIPT_MSG_GTE1,label);
+    //Serial.printf("labels %s\n",label);
+    if (cnt<anum) { WSContentSend_PD(","); }
+  }
+  WSContentSend_PD("],");
+  return lp;
+}
+
+#endif // USE_GOOGLE_CHARTS
 
 void ScriptGetVarname(char *nbuf,char *sp, uint32_t blen) {
 uint32_t cnt;
@@ -5193,44 +5261,16 @@ void ScriptWebShow(char mc) {
         }
         } else {
           if (*lin==mc) {
+#ifdef USE_GOOGLE_CHARTS
             lin++;
             if (!strncmp(lin,"tb(",3)) {
-              // get google table
-              struct T_INDEX ind;
-              uint8_t vtype;
-              char *lp=lin+3;
-              uint8 entries=0;
-              #define MAX_GARRAY 4
+                // get google table
+
               float *arrays[MAX_GARRAY];
               uint8_t anum=0;
-              while (anum<MAX_GARRAY) {
-                if (*lp==')' || *lp==0) break;
-                char *lp1=lp;
-                lp=isvar(lp,&vtype,&ind,0,0,0);
-                if (vtype!=VAR_NV) {
-                  SCRIPT_SKIP_SPACES
-                  uint8_t index=glob_script_mem.type[ind.index].index;
-                  if ((vtype&STYPE)==0) {
-                    // numeric result
-                    //Serial.printf("numeric %d - %d \n",ind.index,index);
-                    if (glob_script_mem.type[ind.index].bits.is_filter) {
-                      //Serial.printf("numeric array\n");
-                      uint8_t len=0;
-                      float *fa=Get_MFAddr(index,&len);
-                      //Serial.printf(">> 2 %d\n",(uint32_t)*fa);
-                      if (fa && len>=entries) {
-                        if (!entries) {entries = len;}
-                        // add array to list
-                        arrays[anum]=fa;
-                        anum++;
-                      }
-                    }
-                  } else {
-                    lp=lp1;
-                    break;
-                  }
-                }
-              }
+              uint8 entries=0;
+              lp=gc_get_arrays(lin+3, &arrays[0], &anum, &entries);
+
               //Serial.printf("arrays %d\n",anum);
               //Serial.printf("entries %d\n",entries);
 
@@ -5239,20 +5279,10 @@ void ScriptWebShow(char mc) {
                 google_libs=1;
               }
 
-              WSContentSend_PD(SCRIPT_MSG_GTABLEa);
-
               // we know how many arrays and the number of entries
               // we need to fetch the labels now
-              WSContentSend_PD("[");
-              for (uint32_t cnt=0; cnt<anum+1; cnt++) {
-                char label[SCRIPT_MAXSSIZE];
-                lp=GetStringResult(lp,OPER_EQU,label,0);
-                SCRIPT_SKIP_SPACES
-                WSContentSend_PD(SCRIPT_MSG_GTE1,label);
-                //Serial.printf("labels %s\n",label);
-                if (cnt<anum) { WSContentSend_PD(","); }
-              }
-              WSContentSend_PD("],");
+              WSContentSend_PD(SCRIPT_MSG_GTABLEa);
+              lp=gc_send_labels(lp,anum);
 
               // now we have to export the values
               // fetch label part only once in combo string
@@ -5354,10 +5384,55 @@ void ScriptWebShow(char mc) {
                 WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
                 chartindex++;
               }
+
+            } else if (!strncmp(lin,"tl(",3)) {
+                // fetch timeline
+                float *arrays[MAX_GARRAY];
+                uint8_t anum=0;
+                uint8 entries=0;
+                lp=gc_get_arrays(lin+3, &arrays[0], &anum, &entries);
+                if (anum & (entries%2==0)) {
+                  if (!google_libs) {
+                    WSContentSend_PD(SCRIPT_MSG_GTABLE);
+                    google_libs=1;
+                  }
+                  WSContentSend_PD(SCRIPT_MSG_GTABLEc);
+
+                  WSContentSend_PD(SCRIPT_MSG_GTABLEa);
+                  lp=gc_send_labels(lp,anum*2);
+
+                  for (uint32_t cnt=0; cnt<entries; cnt+=2) {
+                    WSContentSend_PD("['");
+                    WSContentSend_PD("',");
+                    for (uint32_t ind=0; ind<anum; ind++) {
+                      float *fp=arrays[ind];
+                      uint32_t time=fp[cnt];
+                      WSContentSend_PD(SCRIPT_MSG_GOPT5,time/60,time%60);
+                      WSContentSend_PD(",");
+                      time=fp[cnt+1];
+                      time+=30;
+                      WSContentSend_PD(SCRIPT_MSG_GOPT5,time/60,time%60);
+                      if (ind<anum-1) { WSContentSend_PD(","); }
+                    }
+                    WSContentSend_PD("]");
+                    if (cnt<entries-2) { WSContentSend_PD(","); }
+                  }
+                  char options[128];
+                  snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT4);
+                  const char *type=PSTR("TimeLine");
+                  WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
+
+                }
+
             } else {
               Replace_Cmd_Vars(lin,0,tmp,sizeof(tmp));
               WSContentSend_PD(PSTR("%s"),tmp);
             }
+#else
+          } else {
+            Replace_Cmd_Vars(lin,0,tmp,sizeof(tmp));
+            WSContentSend_PD(PSTR("%s"),tmp);
+#endif //USE_GOOGLE_CHARTS
           }
         }
       }
