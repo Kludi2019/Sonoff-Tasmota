@@ -1254,7 +1254,17 @@ chknext:
               break;
             case 6:
               fvar=Energy.current[2];
-              break;              
+              break;
+            case 7:
+              fvar=Energy.active_power[0];
+              break;
+            case 8:
+              fvar=Energy.active_power[1];
+              break;
+            case 9:
+              fvar=Energy.active_power[2];
+              break;   
+
             default:
               fvar=99999;
               break;
