@@ -4976,7 +4976,7 @@ const char SCRIPT_MSG_GOPT1[] PROGMEM =
 "title:'%s',isStacked:false";
 
 const char SCRIPT_MSG_GOPT3[] PROGMEM =
-"title:'%s',vAxes:{0:{maxValue:%d},1:{maxValue:%d}},series:{0:{targetAxisIndex:0},1:{targetAxisIndex:1}}%s";
+"title:'%s',isStacked:false,vAxes:{0:{maxValue:%d},1:{maxValue:%d}},series:{0:{targetAxisIndex:0},1:{targetAxisIndex:1}}%s";
 
 
 const char SCRIPT_MSG_GOPT2[] PROGMEM =
@@ -5296,29 +5296,13 @@ void ScriptWebShow(char mc) {
 
               const char *type;
               const char *func;
+              char ctype='c';
               if (*lp!=')') {
-                switch (*lp) {
+                ctype=*lp;
+                switch (ctype) {
                   case 'l':
                     lp++;
                     type=PSTR("LineChart");
-                    if (*lp=='f') {
-                      lp++;
-                      func=PSTR(",curveType:'function'");
-                    } else {
-                      func="";
-                    }
-                    if (*lp=='2') {
-                      // 2 y axes variant
-                      lp+=2;
-                      SCRIPT_SKIP_SPACES
-                      float max1;
-                      lp=GetNumericResult(lp,OPER_EQU,&max1,0);
-                      SCRIPT_SKIP_SPACES
-                      float max2;
-                      lp=GetNumericResult(lp,OPER_EQU,&max2,0);
-                      SCRIPT_SKIP_SPACES
-                      snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT3,header,(uint32_t)max1,(uint32_t)max2,func);
-                    }
                     break;
                   case 'b':
                     lp++;
@@ -5342,16 +5326,34 @@ void ScriptWebShow(char mc) {
                     type=PSTR("Histogram");
                     break;
                   default:
+                    lp++;
                     type=PSTR("ColumnChart");
                     break;
                 }
-              } else {
-                lp++;
-                type=PSTR("ColumnChart");
-              }
 
-              WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
-              chartindex++;
+                if (ctype=='l' && *lp=='f') {
+                  lp++;
+                  func=PSTR(",curveType:'function'");
+                } else {
+                  func="";
+                }
+                // check for 2 axis option
+                if (*lp=='2' && anum==2) {
+                  // 2 y axes variant
+                  lp++;
+                  SCRIPT_SKIP_SPACES
+                  float max1;
+                  lp=GetNumericResult(lp,OPER_EQU,&max1,0);
+                  SCRIPT_SKIP_SPACES
+                  float max2;
+                  lp=GetNumericResult(lp,OPER_EQU,&max2,0);
+                  SCRIPT_SKIP_SPACES
+                  snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT3,header,(uint32_t)max1,(uint32_t)max2,func);
+                }
+
+                WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
+                chartindex++;
+              }
             } else {
               Replace_Cmd_Vars(lin,0,tmp,sizeof(tmp));
               WSContentSend_PD(PSTR("%s"),tmp);
