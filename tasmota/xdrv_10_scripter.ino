@@ -44,8 +44,6 @@ keywords if then else endif, or, and are better readable for beginners (others m
 #define SCRIPT_DEBUG 0
 
 
-//#undef USE_RULES_COMPRESSION
-
 #ifndef MAXVARS
 #define MAXVARS 50
 #endif
@@ -71,12 +69,9 @@ uint32_t EncodeLightId(uint8_t relay_id);
 uint32_t DecodeLightId(uint32_t hue_id);
 
 #ifdef USE_RULES_COMPRESSION
-//#include <old_unishox.h>
 #include <unishox.h>
 
 Unishox compressor;   // singleton
-//#define SCRIPT_COMPRESS old_unishox_compress
-//#define SCRIPT_DECOMPRESS old_unishox_decompress
 #define SCRIPT_COMPRESS compressor.unishox_compress
 #define SCRIPT_DECOMPRESS compressor.unishox_decompress
 #ifndef UNISHOXRSIZE
@@ -3982,8 +3977,6 @@ void ScriptSaveSettings(void) {
     glob_script_mem.script_mem_size=0;
   }
 
-
-
 #ifdef USE_RULES_COMPRESSION
 #ifndef USE_24C256
 #ifndef USE_SCRIPT_FATFS
@@ -5481,6 +5474,7 @@ bool Xdrv10(uint8_t function)
       glob_script_mem.script_ram=sprt;
       glob_script_mem.script_size=UNISHOXRSIZE;
       len_decompressed = SCRIPT_DECOMPRESS(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
+      glob_script_mem.script_ram[len_decompressed]=0;
       //AddLog_P2(LOG_LEVEL_INFO, PSTR("decompressed script len %d"),len_decompressed);
 #endif
 #endif
