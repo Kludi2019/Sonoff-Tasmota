@@ -1263,7 +1263,7 @@ chknext:
               break;
             case 9:
               fvar=Energy.active_power[2];
-              break;   
+              break;
 
             default:
               fvar=99999;
@@ -3994,6 +3994,12 @@ void ScriptSaveSettings(void) {
 
     strlcpy(glob_script_mem.script_ram,str.c_str(), glob_script_mem.script_size);
 
+    if (glob_script_mem.script_ram[0]!='>' && glob_script_mem.script_ram[1]!='D') {
+      AddLog_P2(LOG_LEVEL_INFO, PSTR("script error: must start with >D"));
+      bitWrite(Settings.rule_enabled, 0, 0);
+    }
+
+
 #if defined(USE_24C256) && !defined(USE_SCRIPT_FATFS)
     if (glob_script_mem.flags&1) {
       EEP_WRITE(0,EEP_SCRIPT_SIZE,glob_script_mem.script_ram);
@@ -5626,6 +5632,14 @@ bool Xdrv10(uint8_t function)
     glob_script_mem.script_pram_size=MAX_SCRIPT_SIZE;
     glob_script_mem.flags=1;
 #endif
+
+    // a valid script MUST start with >D
+    if (glob_script_mem.script_ram[0]!='>' && glob_script_mem.script_ram[1]!='D') {
+      // clr all
+      memset(glob_script_mem.script_ram,0,glob_script_mem.script_size);
+      strcpy_P(glob_script_mem.script_ram, PSTR(">D\nscript error must start with >D"));
+      bitWrite(Settings.rule_enabled, 0, 0);
+    }
 
       // assure permanent memory is 4 byte aligned
       { uint32_t ptr=(uint32_t)glob_script_mem.script_pram;
