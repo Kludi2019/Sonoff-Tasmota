@@ -4958,7 +4958,8 @@ const char SCRIPT_MSG_GTABLE[] PROGMEM =
   "<script type='text/javascript'>google.charts.load('current',{packages:['corechart']});</script>"
   "<script type='text/javascript'>google.charts.load('current',{packages:['table']});</script>"
   "<script type='text/javascript'>google.charts.load('current',{packages:['gauge']});</script>"
-  "<style>.hRow{font-weight:bold;color:black;background-color:lightblue;}.hCol{font-weight:bold;color:black;background-color:lightblue;}.tCell{color:black}</style>";
+  "<style>.hRow{font-weight:bold;color:black;background-color:lightblue;}.hCol{font-weight:bold;color:black;background-color:lightblue;}.tCell{color:black}</style>"
+  "<style>#chart_div{display: inline-block;margin: 0 auto;#timeline text{fill:magenta;}}</style>";
 
 
 const char SCRIPT_MSG_GTABLEa[] PROGMEM =
@@ -4969,10 +4970,14 @@ const char SCRIPT_MSG_GTABLEa[] PROGMEM =
 const char SCRIPT_MSG_GTABLEc[] PROGMEM =
 "<script type='text/javascript'>google.charts.load('current',{packages:['timeline']});</script>";
 
+const char SCRIPT_MSG_GTABLEd[] PROGMEM =
+"['Timeline','start','end'],";
+
+#define CHART_EXTRA_OPTIONS ",left:0,top:0"
 
 const char SCRIPT_MSG_GTABLEb[] PROGMEM =
  "]);"
- "var options={%s};"
+ "var options={%s" CHART_EXTRA_OPTIONS "};"
  "var chart=new google.visualization.%s(document.getElementById('chart%1d'));"
  "chart.draw(data,options);}"
  "google.charts.setOnLoadCallback(drawChart);</script>";
@@ -4987,7 +4992,8 @@ const char SCRIPT_MSG_GOPT3[] PROGMEM =
 "title:'%s',isStacked:false,vAxes:{0:{maxValue:%d},1:{maxValue:%d}},series:{0:{targetAxisIndex:0},1:{targetAxisIndex:1}}%s";
 
 const char SCRIPT_MSG_GOPT4[] PROGMEM =
-"hAxis:{minValue:new Date(0,1,1,0,0),maxValue:new Date(0,1,2,0,0),format:'HH:mm'}";
+//"hAxis:{minValue:new Date(0,1,1,0,0),maxValue:new Date(0,1,2,0,0),format:'HH:mm'}";
+"hAxis:{minValue:new Date(0,1,1,0,0),maxValue:new Date(0,1,2,0,0),format:'HH:mm'},theme: 'maximized'";
 
 const char SCRIPT_MSG_GOPT5[] PROGMEM =
 "new Date(0,1,1,%d,%d)";
@@ -5391,20 +5397,34 @@ void ScriptWebShow(char mc) {
                 uint8_t anum=0;
                 uint8 entries=0;
                 lp=gc_get_arrays(lin+3, &arrays[0], &anum, &entries);
-                if (anum & (entries%2==0)) {
+
+                if (anum && !(entries&1)) {
                   if (!google_libs) {
                     WSContentSend_PD(SCRIPT_MSG_GTABLE);
                     google_libs=1;
                   }
                   WSContentSend_PD(SCRIPT_MSG_GTABLEc);
-
                   WSContentSend_PD(SCRIPT_MSG_GTABLEa);
-                  lp=gc_send_labels(lp,anum*2);
+                  WSContentSend_PD(SCRIPT_MSG_GTABLEd);
 
-                  for (uint32_t cnt=0; cnt<entries; cnt+=2) {
-                    WSContentSend_PD("['");
-                    WSContentSend_PD("',");
-                    for (uint32_t ind=0; ind<anum; ind++) {
+                  char label[SCRIPT_MAXSSIZE];
+                  lp=GetStringResult(lp,OPER_EQU,label,0);
+                  SCRIPT_SKIP_SPACES
+                  char *lblp=label;
+                  for (uint32_t ind=0; ind<anum; ind++) {
+                    char lbl[16];
+                    strncpy(lbl,lblp,sizeof(lbl));
+                    for (uint32_t i=0; i<strlen(lblp); i++) {
+                      if (lblp[i]=='|') {
+                        lbl[i]=0;
+                        lblp+=i+1;
+                        break;
+                      }
+                      lbl[i]=lblp[i];
+                    }
+
+                    for (uint32_t cnt=0; cnt<entries; cnt+=2) {
+                      WSContentSend_PD("['%s',",lbl);
                       float *fp=arrays[ind];
                       uint32_t time=fp[cnt];
                       WSContentSend_PD(SCRIPT_MSG_GOPT5,time/60,time%60);
@@ -5412,14 +5432,14 @@ void ScriptWebShow(char mc) {
                       time=fp[cnt+1];
                       time+=30;
                       WSContentSend_PD(SCRIPT_MSG_GOPT5,time/60,time%60);
-                      if (ind<anum-1) { WSContentSend_PD(","); }
+                      WSContentSend_PD("]");
+                      if (cnt<entries-2) { WSContentSend_PD(","); }
                     }
-                    WSContentSend_PD("]");
-                    if (cnt<entries-2) { WSContentSend_PD(","); }
+                    if (ind<anum-1) { WSContentSend_PD(","); }
                   }
-                  char options[128];
+                  char options[256];
                   snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT4);
-                  const char *type=PSTR("TimeLine");
+                  const char *type=PSTR("Timeline");
                   WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
 
                 }
