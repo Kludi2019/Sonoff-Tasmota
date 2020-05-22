@@ -4035,9 +4035,9 @@ void ScriptSaveSettings(void) {
 #ifndef ESP32_SCRIPT_SIZE
 
   //AddLog_P2(LOG_LEVEL_INFO,PSTR("in string: %s len = %d"),glob_script_mem.script_ram,strlen(glob_script_mem.script_ram));
-  uint32_t len_compressed = SCRIPT_COMPRESS(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram)+1, Settings.rules[0], MAX_SCRIPT_SIZE-1);
-  Settings.rules[0][len_compressed] = 0;
+  uint32_t len_compressed = SCRIPT_COMPRESS(glob_script_mem.script_ram, strlen(glob_script_mem.script_ram), Settings.rules[0], MAX_SCRIPT_SIZE-1);
   if (len_compressed > 0) {
+    Settings.rules[0][len_compressed] = 0;
     AddLog_P2(LOG_LEVEL_INFO,PSTR("script compressed to %d %%"),len_compressed * 100 / strlen(glob_script_mem.script_ram));
   } else {
     AddLog_P2(LOG_LEVEL_INFO, PSTR("script compress error: %d"), len_compressed);
@@ -4956,10 +4956,15 @@ const char SCRIPT_MSG_NUMINP[] PROGMEM =
 const char SCRIPT_MSG_GTABLE[] PROGMEM =
   "<script type='text/javascript' src='https://www.gstatic.com/charts/loader.js'></script>"
   "<script type='text/javascript'>google.charts.load('current',{packages:['corechart']});</script>"
-  "<script type='text/javascript'>google.charts.load('current',{packages:['table']});</script>"
-  "<script type='text/javascript'>google.charts.load('current',{packages:['gauge']});</script>"
   "<style>.hRow{font-weight:bold;color:black;background-color:lightblue;}.hCol{font-weight:bold;color:black;background-color:lightblue;}.tCell{color:black}</style>"
-  "<style>#chart_div{display: inline-block;margin: 0 auto;#timeline text{fill:magenta;}}</style>";
+  "<style>#chart1{display: inline-block;margin: 0 auto;#timeline text{fill:magenta;}}</style>";
+
+const char SCRIPT_MSG_TABLE[] PROGMEM =
+  "<script type='text/javascript'>google.charts.load('current',{packages:['table']});</script>";
+const char SCRIPT_MSG_GAUGE[] PROGMEM =
+  "<script type='text/javascript'>google.charts.load('current',{packages:['gauge']});</script>";
+const char SCRIPT_MSG_TIMELINE[] PROGMEM =
+  "<script type='text/javascript'>google.charts.load('current',{packages:['timeline']});</script>";
 
 
 const char SCRIPT_MSG_GTABLEa[] PROGMEM =
@@ -4967,13 +4972,12 @@ const char SCRIPT_MSG_GTABLEa[] PROGMEM =
   "var cssc={'headerRow':'hRow','rowNumberCell':'hCol','tableCell':'tCell'};"
   "var data=google.visualization.arrayToDataTable([";
 
-const char SCRIPT_MSG_GTABLEc[] PROGMEM =
-"<script type='text/javascript'>google.charts.load('current',{packages:['timeline']});</script>";
 
 const char SCRIPT_MSG_GTABLEd[] PROGMEM =
 "['Timeline','start','end'],";
 
-#define CHART_EXTRA_OPTIONS ",left:0,top:0"
+//#define CHART_EXTRA_OPTIONS ",width:'640px',height:'480px'"
+#define CHART_EXTRA_OPTIONS
 
 const char SCRIPT_MSG_GTABLEb[] PROGMEM =
  "]);"
@@ -4998,8 +5002,12 @@ const char SCRIPT_MSG_GOPT4[] PROGMEM =
 const char SCRIPT_MSG_GOPT5[] PROGMEM =
 "new Date(0,1,1,%d,%d)";
 
-
 const char SCRIPT_MSG_GTE1[] PROGMEM = "'%s'";
+
+#define GLIBS_MAIN 1<<0
+#define GLIBS_TABLE 1<<1
+#define GLIBS_GAUGE 1<<2
+#define GLIBS_TIMELINE 1<<3
 
 #define MAX_GARRAY 4
 
@@ -5269,144 +5277,94 @@ void ScriptWebShow(char mc) {
           if (*lin==mc) {
 #ifdef USE_GOOGLE_CHARTS
             lin++;
-            if (!strncmp(lin,"tb(",3)) {
+            if (!strncmp(lin,"gc(",3)) {
                 // get google table
+              lp=lin+3;
+              SCRIPT_SKIP_SPACES
+              const char *type;
+              const char *func;
+              char options[256];
+              uint8_t nanum=MAX_GARRAY;
+              uint8_t y2f=0;
+              char ctype;
+              ctype=*lp;
+              lp++;
+              if (!(google_libs&GLIBS_MAIN)) {
+                google_libs|=GLIBS_MAIN;
+                WSContentSend_PD(SCRIPT_MSG_GTABLE);
+              }
+              switch (ctype) {
+                  case 'l':
+                    type=PSTR("LineChart");
+                    break;
+                  case 'b':
+                    type=PSTR("BarChart");
+                    break;
+                  case 'p':
+                    type=PSTR("PieChart");
+                    break;
+                  case 'g':
+                    type=PSTR("Gauge");
+                    if (!(google_libs&GLIBS_GAUGE)) {
+                      google_libs|=GLIBS_GAUGE;
+                      WSContentSend_PD(SCRIPT_MSG_GAUGE);
+                    }
+                    break;
+                  case 't':
+                    type=PSTR("Table");
+                    if (!(google_libs&GLIBS_TABLE)) {
+                      google_libs|=GLIBS_TABLE;
+                      WSContentSend_PD(SCRIPT_MSG_TABLE);
+                    }
+                    break;
+                  case 'T':
+                    type=PSTR("Timeline");
+                    if (!(google_libs&GLIBS_TIMELINE)) {
+                      google_libs|=GLIBS_TIMELINE;
+                      WSContentSend_PD(SCRIPT_MSG_TIMELINE);
+                    }
+                    break;
+                  case 'h':
+                    type=PSTR("Histogram");
+                    break;
+                  case 'c':
+                    type=PSTR("ColumnChart");
+                    break;
+                  default:
+                    // error
+                    goto nextwebline;
+                    break;
+              }
+              if (ctype=='l' && *lp=='f') {
+                lp++;
+                func=PSTR(",curveType:'function'");
+              } else {
+                func="";
+              }
+              if (*lp=='2') {
+                lp++;
+                nanum=2;
+                y2f=1;
+              }
+              SCRIPT_SKIP_SPACES
+
+              //Serial.printf("type %d\n",ctype);
 
               float *arrays[MAX_GARRAY];
               uint8_t anum=0;
               uint8 entries=0;
-              lp=gc_get_arrays(lin+3, &arrays[0], &anum, &entries);
+              lp=gc_get_arrays(lp, &arrays[0], &anum, &entries);
 
+              if (anum>nanum) {
+                goto nextwebline;
+              }
+              // we know how many arrays and the number of entries
               //Serial.printf("arrays %d\n",anum);
               //Serial.printf("entries %d\n",entries);
-
-              if (!google_libs) {
-                WSContentSend_PD(SCRIPT_MSG_GTABLE);
-                google_libs=1;
-              }
-
-              // we know how many arrays and the number of entries
-              // we need to fetch the labels now
-              WSContentSend_PD(SCRIPT_MSG_GTABLEa);
-              lp=gc_send_labels(lp,anum);
-
-              // now we have to export the values
-              // fetch label part only once in combo string
-              char label[SCRIPT_MAXSSIZE];
-              lp=GetStringResult(lp,OPER_EQU,label,0);
-              SCRIPT_SKIP_SPACES
-              char *lblp=label;
-
-              for (uint32_t cnt=0; cnt<entries; cnt++) {
-                WSContentSend_PD("['");
-                char lbl[16];
-                strncpy(lbl,lblp,sizeof(lbl));
-                for (uint32_t i=0; i<strlen(lblp); i++) {
-                  if (lblp[i]=='|') {
-                    lbl[i]=0;
-                    lblp+=i+1;
-                    break;
-                  }
-                  lbl[i]=lblp[i];
-                }
-                WSContentSend_PD(lbl);
-                WSContentSend_PD("',");
-                for (uint32_t ind=0; ind<anum; ind++) {
-                  char acbuff[32];
-                  float *fp=arrays[ind];
-                  dtostrfd(fp[cnt],glob_script_mem.script_dprec,acbuff);
-                  WSContentSend_PD("%s",acbuff);
-                  if (ind<anum-1) { WSContentSend_PD(","); }
-                }
-                WSContentSend_PD("]");
-                if (cnt<entries-1) { WSContentSend_PD(","); }
-              }
-
-              char header[SCRIPT_MAXSSIZE];
-              lp=GetStringResult(lp,OPER_EQU,header,0);
-              SCRIPT_SKIP_SPACES
-
-              char options[256];
-              snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT1,header);
-              //uint32_t slen=sizeof(SCRIPT_MSG_GOPT1)+strlen(header);
-
-              const char *type;
-              const char *func;
-              char ctype='c';
-              if (*lp!=')') {
-                ctype=*lp;
-                switch (ctype) {
-                  case 'l':
-                    lp++;
-                    type=PSTR("LineChart");
-                    break;
-                  case 'b':
-                    lp++;
-                    type=PSTR("BarChart");
-                    break;
-                  case 'p':
-                    lp++;
-                    type=PSTR("PieChart");
-                    break;
-                  case 'g':
-                    lp++;
-                    type=PSTR("Gauge");
-                    break;
-                  case 't':
-                    lp++;
-                    type=PSTR("Table");
-                    snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT2);
-                    break;
-                  case 'h':
-                    lp++;
-                    type=PSTR("Histogram");
-                    break;
-                  default:
-                    lp++;
-                    type=PSTR("ColumnChart");
-                    break;
-                }
-
-                if (ctype=='l' && *lp=='f') {
-                  lp++;
-                  func=PSTR(",curveType:'function'");
-                } else {
-                  func="";
-                }
-                // check for 2 axis option
-                if (*lp=='2' && anum==2) {
-                  // 2 y axes variant
-                  lp++;
-                  SCRIPT_SKIP_SPACES
-                  float max1;
-                  lp=GetNumericResult(lp,OPER_EQU,&max1,0);
-                  SCRIPT_SKIP_SPACES
-                  float max2;
-                  lp=GetNumericResult(lp,OPER_EQU,&max2,0);
-                  SCRIPT_SKIP_SPACES
-                  snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT3,header,(uint32_t)max1,(uint32_t)max2,func);
-                }
-
-                WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
-                chartindex++;
-              }
-
-            } else if (!strncmp(lin,"tl(",3)) {
-                // fetch timeline
-                float *arrays[MAX_GARRAY];
-                uint8_t anum=0;
-                uint8 entries=0;
-                lp=gc_get_arrays(lin+3, &arrays[0], &anum, &entries);
-
+              if (ctype=='T') {
                 if (anum && !(entries&1)) {
-                  if (!google_libs) {
-                    WSContentSend_PD(SCRIPT_MSG_GTABLE);
-                    google_libs=1;
-                  }
-                  WSContentSend_PD(SCRIPT_MSG_GTABLEc);
                   WSContentSend_PD(SCRIPT_MSG_GTABLEa);
                   WSContentSend_PD(SCRIPT_MSG_GTABLEd);
-
                   char label[SCRIPT_MAXSSIZE];
                   lp=GetStringResult(lp,OPER_EQU,label,0);
                   SCRIPT_SKIP_SPACES
@@ -5422,7 +5380,6 @@ void ScriptWebShow(char mc) {
                       }
                       lbl[i]=lblp[i];
                     }
-
                     for (uint32_t cnt=0; cnt<entries; cnt+=2) {
                       WSContentSend_PD("['%s',",lbl);
                       float *fp=arrays[ind];
@@ -5430,20 +5387,79 @@ void ScriptWebShow(char mc) {
                       WSContentSend_PD(SCRIPT_MSG_GOPT5,time/60,time%60);
                       WSContentSend_PD(",");
                       time=fp[cnt+1];
-                      time+=30;
                       WSContentSend_PD(SCRIPT_MSG_GOPT5,time/60,time%60);
                       WSContentSend_PD("]");
                       if (cnt<entries-2) { WSContentSend_PD(","); }
                     }
                     if (ind<anum-1) { WSContentSend_PD(","); }
                   }
-                  char options[256];
                   snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT4);
-                  const char *type=PSTR("Timeline");
-                  WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
+                }
+              } else {
+                // we need to fetch the labels now
+                WSContentSend_PD(SCRIPT_MSG_GTABLEa);
+                lp=gc_send_labels(lp,anum);
 
+                // now we have to export the values
+                // fetch label part only once in combo string
+                char label[SCRIPT_MAXSSIZE];
+                lp=GetStringResult(lp,OPER_EQU,label,0);
+                SCRIPT_SKIP_SPACES
+                char *lblp=label;
+
+                for (uint32_t cnt=0; cnt<entries; cnt++) {
+                  WSContentSend_PD("['");
+                  char lbl[16];
+                  strncpy(lbl,lblp,sizeof(lbl));
+                  for (uint32_t i=0; i<strlen(lblp); i++) {
+                    if (lblp[i]=='|') {
+                      lbl[i]=0;
+                      lblp+=i+1;
+                      break;
+                    }
+                    lbl[i]=lblp[i];
+                  }
+                  WSContentSend_PD(lbl);
+                  WSContentSend_PD("',");
+                  for (uint32_t ind=0; ind<anum; ind++) {
+                    char acbuff[32];
+                    float *fp=arrays[ind];
+                    dtostrfd(fp[cnt],glob_script_mem.script_dprec,acbuff);
+                    WSContentSend_PD("%s",acbuff);
+                    if (ind<anum-1) { WSContentSend_PD(","); }
+                  }
+                  WSContentSend_PD("]");
+                  if (cnt<entries-1) { WSContentSend_PD(","); }
                 }
 
+                // get header
+                char header[SCRIPT_MAXSSIZE];
+                lp=GetStringResult(lp,OPER_EQU,header,0);
+                SCRIPT_SKIP_SPACES
+
+                switch (ctype) {
+                  case 't':
+                    snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT2);
+                    break;
+                  default:
+                    snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT1,header);
+                    break;
+                }
+                // check for 2 axis option
+                if (y2f) {
+                  // 2 y axes variant
+                  SCRIPT_SKIP_SPACES
+                  float max1;
+                  lp=GetNumericResult(lp,OPER_EQU,&max1,0);
+                  SCRIPT_SKIP_SPACES
+                  float max2;
+                  lp=GetNumericResult(lp,OPER_EQU,&max2,0);
+                  SCRIPT_SKIP_SPACES
+                  snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT3,header,(uint32_t)max1,(uint32_t)max2,func);
+                }
+              }
+              WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
+              chartindex++;
             } else {
               Replace_Cmd_Vars(lin,0,tmp,sizeof(tmp));
               WSContentSend_PD(PSTR("%s"),tmp);
@@ -5456,6 +5472,7 @@ void ScriptWebShow(char mc) {
           }
         }
       }
+nextwebline:
       if (*lp==SCRIPT_EOL) {
         lp++;
       } else {
@@ -5636,7 +5653,7 @@ bool Xdrv10(uint8_t function)
       glob_script_mem.script_ram=sprt;
       glob_script_mem.script_size=UNISHOXRSIZE;
       len_decompressed = SCRIPT_DECOMPRESS(Settings.rules[0], strlen(Settings.rules[0]), glob_script_mem.script_ram, glob_script_mem.script_size);
-      glob_script_mem.script_ram[len_decompressed]=0;
+      if (len_decompressed>0) glob_script_mem.script_ram[len_decompressed]=0;
       //AddLog_P2(LOG_LEVEL_INFO, PSTR("decompressed script len %d"),len_decompressed);
 #endif
 #endif
