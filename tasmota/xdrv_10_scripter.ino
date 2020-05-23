@@ -5294,7 +5294,7 @@ void ScriptWebShow(char mc) {
               SCRIPT_SKIP_SPACES
               const char *type;
               const char *func;
-              char options[256];
+              char options[312];
               uint8_t nanum=MAX_GARRAY;
               uint8_t y2f=0;
               char ctype;
@@ -5416,19 +5416,29 @@ void ScriptWebShow(char mc) {
                 char label[SCRIPT_MAXSSIZE];
                 lp=GetStringResult(lp,OPER_EQU,label,0);
                 SCRIPT_SKIP_SPACES
+
                 char *lblp=label;
+                int8_t todflg=-1;
+                if (!strncmp(label,"cnt",3)) {
+                  todflg=atoi(&label[3]);
+                }
 
                 for (uint32_t cnt=0; cnt<entries; cnt++) {
                   WSContentSend_PD("['");
                   char lbl[16];
-                  strncpy(lbl,lblp,sizeof(lbl));
-                  for (uint32_t i=0; i<strlen(lblp); i++) {
-                    if (lblp[i]=='|') {
-                      lbl[i]=0;
-                      lblp+=i+1;
-                      break;
+                  if (todflg>=0) {
+                    sprintf(lbl,"%d",todflg);
+                    todflg++;
+                  } else {
+                    strncpy(lbl,lblp,sizeof(lbl));
+                    for (uint32_t i=0; i<strlen(lblp); i++) {
+                      if (lblp[i]=='|') {
+                        lbl[i]=0;
+                        lblp+=i+1;
+                        break;
+                      }
+                      lbl[i]=lblp[i];
                     }
-                    lbl[i]=lblp[i];
                   }
                   WSContentSend_PD(lbl);
                   WSContentSend_PD("',");
