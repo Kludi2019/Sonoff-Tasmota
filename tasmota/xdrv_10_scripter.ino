@@ -5107,6 +5107,7 @@ void ScriptWebShow(char mc) {
         memcpy(line,lp,sizeof(line));
         line[sizeof(line)-1]=0;
         char *cp=line;
+
         for (uint32_t i=0; i<sizeof(line); i++) {
           if (!*cp || *cp=='\n' || *cp=='\r') {
             *cp=0;
@@ -5286,6 +5287,7 @@ void ScriptWebShow(char mc) {
           if (*lin==mc) {
 #ifdef USE_GOOGLE_CHARTS
             lin++;
+            char *lp;
             if (!strncmp(lin,"gc(",3)) {
                 // get google table
               lp=lin+3;
