@@ -5006,6 +5006,9 @@ const char SCRIPT_MSG_GTABLEb[] PROGMEM =
 const char SCRIPT_MSG_GOPT1[] PROGMEM =
 "title:'%s',isStacked:false";
 
+const char SCRIPT_MSG_GAUGEOPT[] PROGMEM =
+"max:%d,redFrom:%d,redTo:%d,yellowFrom:%d,yellowTo:%d";
+
 const char SCRIPT_MSG_GOPT2[] PROGMEM =
 "showRowNumber:true,sort:'disable',allowHtml:true,width:'100%%',height:'100%%',cssClassNames:cssc";
 
@@ -5037,7 +5040,8 @@ uint8 entries=0;
   while (anum<MAX_GARRAY) {
     if (*lp==')' || *lp==0) break;
     char *lp1=lp;
-    lp=isvar(lp,&vtype,&ind,0,0,0);
+    float sysvar;
+    lp=isvar(lp,&vtype,&ind,&sysvar,0,0);
     if (vtype!=VAR_NV) {
       SCRIPT_SKIP_SPACES
       uint8_t index=glob_script_mem.type[ind.index].index;
@@ -5055,6 +5059,11 @@ uint8 entries=0;
             arrays[anum]=fa;
             anum++;
           }
+        } else {
+          // single numeric
+          arrays[anum]=&glob_script_mem.fvars[index];
+          anum++;
+          entries=1;
         }
       } else {
         lp=lp1;
@@ -5062,6 +5071,7 @@ uint8 entries=0;
       }
     }
   }
+  //Serial.printf(">> %d - %d - %d\n",anum,entries,(uint32_t)*arrays[0]);
   *ranum=anum;
   *rentries=entries;
   return lp;
@@ -5298,7 +5308,8 @@ void ScriptWebShow(char mc) {
             char *lp;
             if (!strncmp(lin,"gc(",3)) {
                 // get google table
-              lp=lin+3;
+              Replace_Cmd_Vars(lin+3,0,tmp,sizeof(tmp));
+              lp=tmp;
               SCRIPT_SKIP_SPACES
               const char *type;
               const char *func;
@@ -5485,6 +5496,22 @@ void ScriptWebShow(char mc) {
                   lp=GetNumericResult(lp,OPER_EQU,&max2,0);
                   SCRIPT_SKIP_SPACES
                   snprintf_P(options,sizeof(options),SCRIPT_MSG_GOPT3,header,(uint32_t)max1,(uint32_t)max2,func);
+                }
+
+                if (ctype=='g') {
+                  float yellowFrom;
+                  lp=GetNumericResult(lp,OPER_EQU,&yellowFrom,0);
+                  SCRIPT_SKIP_SPACES
+                  float redFrom;
+                  lp=GetNumericResult(lp,OPER_EQU,&redFrom,0);
+                  SCRIPT_SKIP_SPACES
+                  float maxValue;
+                  lp=GetNumericResult(lp,OPER_EQU,&maxValue,0);
+                  SCRIPT_SKIP_SPACES
+                  float redTo=maxValue;
+                  float yellowTo=redFrom;
+                  snprintf_P(options,sizeof(options),SCRIPT_MSG_GAUGEOPT,(uint32_t)maxValue,(uint32_t)redFrom,(uint32_t)redTo,
+                  (uint32_t)yellowFrom,(uint32_t)yellowTo);
                 }
               }
               WSContentSend_PD(SCRIPT_MSG_GTABLEb,options,type,chartindex);
