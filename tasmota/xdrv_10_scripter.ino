@@ -2786,6 +2786,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
     if (tasm_cmd_activ && tlen>0) return 0;
 
     uint8_t vtype=0,sindex,xflg,floop=0,globvindex,fromscriptcmd=0;
+    char *lp_next;
     int8_t globaindex;
     struct T_INDEX ind;
     uint8_t operand,lastop,numeric=1,if_state[IF_NEST],if_exe[IF_NEST],if_result[IF_NEST],and_or,ifstck=0;
@@ -2925,6 +2926,7 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
               // simple implementation, zero loop count not supported
               lp+=3;
               SCRIPT_SKIP_SPACES
+              lp_next=0;
               lp=isvar(lp,&vtype,&ind,0,0,0);
               if ((vtype!=VAR_NV) && (vtype&STYPE)==0) {
                   // numeric var
@@ -2947,22 +2949,26 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
                       // error
                   toLogEOL("for error",lp);
               }
-            } else if (!strncmp(lp,"next",4) && floop>0) {
-              // for next loop
-              *cv_count+=cv_inc;
-              if (floop==1) {
-                if (*cv_count<=cv_max) {
-                  lp=cv_ptr;
+            } else if (!strncmp(lp,"next",4)) {
+              lp+=4;
+              lp_next=lp;
+              if (floop>0) {
+                // for next loop
+                *cv_count+=cv_inc;
+                if (floop==1) {
+                  if (*cv_count<=cv_max) {
+                    lp=cv_ptr;
+                  } else {
+                    lp+=4;
+                    floop=0;
+                  }
                 } else {
-                  lp+=4;
-                  floop=0;
-                }
-              } else {
-                if (*cv_count>=cv_max) {
-                  lp=cv_ptr;
-                } else {
-                  lp+=4;
-                  floop=0;
+                  if (*cv_count>=cv_max) {
+                    lp=cv_ptr;
+                  } else {
+                    lp+=4;
+                    floop=0;
+                  }
                 }
               }
             }
@@ -3022,13 +3028,15 @@ int16_t Run_Scripter(const char *type, int8_t tlen, char *js) {
 #endif
 
             if (!strncmp(lp,"break",5)) {
-              if (floop) {
+              lp+=5;
+              if (floop && lp_next) {
                 // should break loop
+                lp=lp_next;
                 floop=0;
               } else {
                 section=0;
               }
-              break;
+              goto next_line;
             } else if (!strncmp(lp,"dp",2) && isdigit(*(lp+2))) {
               lp+=2;
               // number precision
