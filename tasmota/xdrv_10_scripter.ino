@@ -1993,12 +1993,13 @@ chknext:
           goto exit;
         }
 #endif
+
 #if defined(USE_SML_M) && defined (USE_SML_SCRIPT_CMD)
         if (!strncmp(vname,"sml[",4)) {
           lp+=4;
           lp=GetNumericResult(lp,OPER_EQU,&fvar,0);
           SCRIPT_SKIP_SPACES
-          fvar=SML_GetVal[fvar];
+          fvar=SML_GetVal(fvar);
           lp++;
           len=0;
           goto exit;
